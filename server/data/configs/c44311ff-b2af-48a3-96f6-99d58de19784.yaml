@@ -1,0 +1,60 @@
+# Clash Configurator Metadata
+# id: c44311ff-b2af-48a3-96f6-99d58de19784
+# name: primary
+# createdAt: 2026-03-13T05:53:36.149Z
+# updatedAt: 2026-03-13T05:53:36.149Z
+
+mixed-port: 7890
+allow-lan: false
+bind-address: "*"
+mode: rule
+log-level: info
+ipv6: false
+proxies: []
+proxy-providers: {}
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies: []
+  - name: DIRECT
+    type: select
+    proxies:
+      - DIRECT
+  - name: REJECT
+    type: select
+    proxies:
+      - REJECT
+rules:
+  - GEOIP,CN,PROXY
+  - MATCH,PROXY
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - localhost.ptlogin2.qq.com
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  fallback:
+    - tls://8.8.8.8:853
+    - tls://1.1.1.1:853
+sniffer:
+  enable: true
+  parse-pure-ip: true
+  sniff:
+    HTTP:
+      ports:
+        - 80
+        - 8080-8880
+      override-destination: true
+    TLS:
+      ports:
+        - 443
+        - 8443
+    QUIC:
+      ports:
+        - 443
+        - 8443

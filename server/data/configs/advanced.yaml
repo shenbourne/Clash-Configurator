@@ -1,0 +1,450 @@
+# Clash Configurator Metadata
+# id: c8c18e7c-47f6-4f74-922b-ee1b3f4b91b4
+# name: advanced
+# createdAt: 2026-03-12T13:39:07.121Z
+# updatedAt: 2026-03-16T14:09:43.290Z
+
+mixed-port: 7890
+allow-lan: false
+bind-address: "*"
+mode: rule
+log-level: info
+ipv6: false
+proxy-groups:
+  - name: 默认
+    type: select
+    proxies:
+      - 自动选择
+      - Tkong Core
+      - Tkong Edge
+      - Youtu
+      - TAG
+      - 香港
+      - 台湾
+      - 日本
+      - 新加坡
+      - 美国
+      - 全部节点
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Proxy.png
+  - name: 全部节点
+    type: select
+    include-all: true
+  - name: Tkong Core
+    type: url-test
+    include-all: true
+    interval: 300
+    url: http://www.gstatic.com/generate_204
+    filter: "Tkong Core "
+    proxies: []
+    tolerance: 50
+    use:
+      - Tkong-Core
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/HK.png
+  - name: Tkong Edge
+    type: url-test
+    include-all: true
+    interval: 300
+    filter: "Tkong Edge "
+    proxies: []
+    use:
+      - Tkong-Edge
+    url: http://www.gstatic.com/generate_204
+    tolerance: 50
+  - name: Youtu
+    type: url-test
+    include-all: true
+    interval: 300
+    filter: "Youtu "
+    proxies: []
+    use:
+      - Youtu
+    url: http://www.gstatic.com/generate_204
+    tolerance: 50
+  - name: TAG
+    type: url-test
+    include-all: true
+    interval: 300
+    filter: "TAG "
+    proxies: []
+    use:
+      - TAG
+    url: http://www.gstatic.com/generate_204
+    tolerance: 50
+  - name: 自动选择
+    type: url-test
+    include-all: true
+    interval: 300
+    filter: (?i)^(?!.*(?:直连|拒绝访问)).*
+    tolerance: 10
+  - name: AI
+    type: url-test
+    include-all: true
+    interval: 300
+    filter: (?i)GPT
+  - name: Google
+    type: url-test
+    include-all: true
+    interval: 300
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Google_Search.png
+  - name: Apple
+    type: url-test
+    include-all: true
+    interval: 300
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Apple.png
+  - name: Telegram
+    type: url-test
+    include-all: true
+    interval: 300
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Telegram.png
+  - name: Twitter
+    type: url-test
+    include-all: true
+    interval: 300
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Twitter.png
+  - name: ehentai
+    type: url-test
+    include-all: true
+    interval: 300
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Panda.png
+  - name: 巴哈姆特
+    type: url-test
+    include-all: true
+    interval: 300
+    url: https://ani.gamer.com.tw/favicon.ico
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Bahamut.png
+  - name: YouTube
+    type: url-test
+    include-all: true
+    interval: 300
+    url: https://www.youtube.com/favicon.ico
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/YouTube.png
+  - name: NETFLIX
+    type: url-test
+    include-all: true
+    interval: 300
+    url: https://netflix.com/favicon.ico
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Netflix.png
+  - name: Spotify
+    type: url-test
+    include-all: true
+    interval: 300
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Spotify.png
+  - name: Docker
+    type: url-test
+    include-all: true
+    interval: 300
+    url: https://www.docker.com/favicon.ico
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Spotify.png
+  - name: 其他
+    type: select
+    proxies:
+      - 默认
+      - 香港
+      - 台湾
+      - 日本
+      - 新加坡
+      - 美国
+      - 其它地区
+      - 全部节点
+      - 自动选择
+  - name: 香港
+    type: select
+    proxies:
+      - 香港自动选择
+    include-all: true
+    filter: (?i)(?!直连)(港|hk|hongkong|hong kong)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/HK.png
+  - name: 台湾
+    type: select
+    proxies:
+      - 台湾自动选择
+    include-all: true
+    filter: (?i)(?!直连)(台|tw|taiwan)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/TW.png
+  - name: 日本
+    type: select
+    proxies:
+      - 日本自动选择
+    include-all: true
+    filter: (?i)(?!直连)(日|jp|japan)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/JP.png
+  - name: 美国
+    type: select
+    proxies:
+      - 美国自动选择
+    include-all: true
+    filter: (?i)(?!直连)(美|us|unitedstates|united states)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/US.png
+  - name: 新加坡
+    type: select
+    proxies:
+      - 新加坡自动选择
+    include-all: true
+    filter: (?i)(新|sg|singapore)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/SG.png
+  - name: 其它地区
+    type: select
+    include-all: true
+    filter: (?i)^(?!.*(?:🇭🇰|🇯🇵|🇺🇸|🇸🇬|🇨🇳|港|hk|hongkong|台|tw|taiwan|日|jp|japan|新|sg|singapore|美|us|unitedstates|直连)).*
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Available.png
+  - name: 香港自动选择
+    type: url-test
+    include-all: true
+    interval: 300
+    url: http://www.speedtest.net/hongkong
+    filter: (?i)(?!直连)(港|hk|hongkong|hong kong)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/HK.png
+  - name: 台湾自动选择
+    type: url-test
+    include-all: true
+    interval: 300
+    url: http://www.speedtest.net/taiwan
+    filter: (?i)(?!直连)(台|tw|taiwan)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/TW.png
+  - name: 日本自动选择
+    type: url-test
+    include-all: true
+    interval: 300
+    url: http://www.speedtest.net/japan
+    filter: (?i)(?!直连)(日|jp|japan)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/JP.png
+  - name: 美国自动选择
+    type: url-test
+    include-all: true
+    interval: 300
+    url: http://www.speedtest.net/united-states
+    filter: (?i)(?!直连)(美|us|unitedstates|united states)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/US.png
+  - name: 新加坡自动选择
+    type: url-test
+    include-all: true
+    interval: 300
+    url: http://www.speedtest.net/singapore
+    filter: (?i)(新|sg|singapore)
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/SG.png
+  - name: 家宽
+    type: url-test
+    include-all: true
+    interval: 300
+    filter: (?i)家宽
+rules:
+  - RULE-SET,private,DIRECT
+  - RULE-SET,AI,AI
+  - RULE-SET,premium_applications,DIRECT
+  - DOMAIN,clash.razord.top,DIRECT
+  - DOMAIN,yacd.haishan.me,DIRECT
+  - RULE-SET,premium_private,DIRECT
+  - RULE-SET,premium_reject,REJECT
+  - RULE-SET,adv_AD,REJECT
+  - RULE-SET,adv_EasyList,REJECT
+  - RULE-SET,adv_EasyListChina,REJECT
+  - RULE-SET,adv_EasyPrivacy,REJECT
+  - RULE-SET,adv_ProgramAD,REJECT
+  - RULE-SET,premium_icloud,DIRECT
+  - RULE-SET,premium_apple,DIRECT
+  - RULE-SET,premium_google,默认
+  - RULE-SET,premium_proxy,默认
+  - RULE-SET,premium_direct,DIRECT
+  - RULE-SET,premium_lancidr,DIRECT
+  - RULE-SET,premium_cncidr,DIRECT
+  - RULE-SET,premium_telegramcidr,默认
+  - GEOIP,LAN,DIRECT
+  - GEOIP,CN,DIRECT
+  - MATCH,默认
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - localhost.ptlogin2.qq.com
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  fallback:
+    - tls://8.8.8.8:853
+    - tls://1.1.1.1:853
+sniffer:
+  enable: true
+  parse-pure-ip: true
+  sniff:
+    HTTP:
+      ports:
+        - 80
+        - 8080-8880
+      override-destination: true
+    TLS:
+      ports:
+        - 443
+        - 8443
+    QUIC:
+      ports:
+        - 443
+        - 8443
+proxy-providers:
+  Tkong-Edge:
+    type: http
+    url: https://scribe.tkong.uk/feb2026_304835972.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "Tkong Edge | "
+  Tkong-Core:
+    type: http
+    url: https://access.tkong.uk/s/9b0988cbedd58f4ff51fff0838712312
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "Tkong Core | "
+  Youtu:
+    type: http
+    url: https://scribe.shenb.one/proxy/youtu.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "Youtu | "
+  TAG:
+    type: http
+    url: https://scribe.shenb.one/proxy/TAG.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "TAG | "
+rule-providers:
+  premium_reject:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt
+    path: ./ruleset/premium_reject.yaml
+    interval: 86400
+  premium_icloud:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/icloud.txt
+    path: ./ruleset/premium_icloud.yaml
+    interval: 86400
+  premium_apple:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/apple.txt
+    path: ./ruleset/premium_apple.yaml
+    interval: 86400
+  premium_google:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt
+    path: ./ruleset/premium_google.yaml
+    interval: 86400
+  premium_proxy:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt
+    path: ./ruleset/premium_proxy.yaml
+    interval: 86400
+  premium_direct:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt
+    path: ./ruleset/premium_direct.yaml
+    interval: 86400
+  premium_private:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt
+    path: ./ruleset/premium_private.yaml
+    interval: 86400
+  premium_gfw:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt
+    path: ./ruleset/premium_gfw.yaml
+    interval: 86400
+  premium_tld-not-cn:
+    type: http
+    behavior: domain
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/tld-not-cn.txt
+    path: ./ruleset/premium_tld-not-cn.yaml
+    interval: 86400
+  premium_telegramcidr:
+    type: http
+    behavior: ipcidr
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt
+    path: ./ruleset/premium_telegramcidr.yaml
+    interval: 86400
+  premium_cncidr:
+    type: http
+    behavior: ipcidr
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt
+    path: ./ruleset/premium_cncidr.yaml
+    interval: 86400
+  premium_lancidr:
+    type: http
+    behavior: ipcidr
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt
+    path: ./ruleset/premium_lancidr.yaml
+    interval: 86400
+  premium_applications:
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt
+    path: ./ruleset/premium_applications.yaml
+    interval: 86400
+  private:
+    type: http
+    behavior: classical
+    localRuleSetId: cfd853ab-f938-499a-b344-7cafb9f0534b
+    localRuleSet:
+      id: cfd853ab-f938-499a-b344-7cafb9f0534b
+      name: private
+      behavior: classical
+      description: ""
+    url: https://scribe.shenb.one/ruleset/private.yaml
+    interval: 86400
+  AI:
+    type: http
+    behavior: classical
+    url: https://scribe.shenb.one/ruleset/AI.yaml
+    interval: 86400
+  adv_AD:
+    type: http
+    behavior: domain
+    url: https://raw.githubusercontent.com/earoftoast/clash-rules/main/AD.yaml
+    path: ./rules/adv_AD.yaml
+    interval: 86400
+  adv_EasyList:
+    type: http
+    behavior: domain
+    url: https://raw.githubusercontent.com/earoftoast/clash-rules/main/EasyList.yaml
+    path: ./rules/adv_EasyList.yaml
+    interval: 86400
+  adv_EasyListChina:
+    type: http
+    behavior: domain
+    url: https://raw.githubusercontent.com/earoftoast/clash-rules/main/EasyListChina.yaml
+    path: ./rules/adv_EasyListChina.yaml
+    interval: 86400
+  adv_EasyPrivacy:
+    type: http
+    behavior: domain
+    url: https://raw.githubusercontent.com/earoftoast/clash-rules/main/EasyPrivacy.yaml
+    path: ./rules/adv_EasyPrivacy.yaml
+    interval: 86400
+  adv_ProgramAD:
+    type: http
+    behavior: domain
+    url: https://raw.githubusercontent.com/earoftoast/clash-rules/main/ProgramAD.yaml
+    path: ./rules/adv_ProgramAD.yaml
+    interval: 86400

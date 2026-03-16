@@ -1,0 +1,19 @@
+# Rule Set Metadata
+# id: cfd853ab-f938-499a-b344-7cafb9f0534b
+# name: private
+# behavior: classical
+# description: 
+# tags: []
+# createdAt: 2026-03-14T15:47:49.907Z
+# updatedAt: 2026-03-16T11:50:42.846Z
+
+payload:
+  - DOMAIN-SUFFIX,buaa.edu.cn
+  - DOMAIN-SUFFIX,shenbourne.com
+  - DOMAIN-SUFFIX,shenb.net
+  - DOMAIN-SUFFIX,shenb.one
+  - IP-CIDR,100.110.0.0/16
+  - IP-CIDR,172.25.0.0/16
+  - IP-CIDR,110.42.42.95/16
+  - IP-CIDR,198.12.81.136/16
+  - IP-CIDR,198.12.81.136/16
