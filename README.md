@@ -37,7 +37,7 @@ docker-compose down
 
 services:
   clash-configurator:
-    image: clash-configurator:latest
+    image: shenbourne/clash-configurator:latest
     container_name: clash-configurator
     ports:
       - "3000:3000"
@@ -61,7 +61,7 @@ services:
 
 ```bash
 # 构建镜像
-docker build -t clash-configurator:latest .
+docker build -t shenbourne/clash-configurator:latest .
 
 # 运行容器
 docker run -d \

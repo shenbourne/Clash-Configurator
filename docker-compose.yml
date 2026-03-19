@@ -1,6 +1,6 @@
 services:
   clash-configurator:
-    image: clash-configurator:latest
+    image: shenbourne/clash-configurator:latest
     container_name: clash-configurator
     ports:
       - "3000:3000"
