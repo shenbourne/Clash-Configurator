@@ -11,7 +11,7 @@
 - ✅ **配置管理**: 创建、编辑、删除、导入、导出 Clash 配置文件
 - ✅ **代理节点管理**: 支持 SS、SSR、VMess、Trojan、VLESS、Hysteria、SOCKS5、HTTP 等协议
 - ✅ **代理组配置**: 支持手动选择、自动测速、故障转移、负载均衡等类型
-- ✅ **规则编辑**: 支持域名、IP、进程等多种规则类型
+- ✅ **规则编辑**: 支持域名、IP、GEOSITE、进程等多种规则类型
 - ✅ **DNS 配置**: 完整的 DNS 配置选项，包括 Fake-IP、fallback 等
 - ✅ **高级配置**: Sniffer、TUN、统一延迟等高级选项
 - ✅ **YAML 预览**: 实时预览生成的配置文件
@@ -190,6 +190,15 @@ npm start
 ### 规则
 - `GET /api/configs/:id/rules` - 获取规则列表
 - `PUT /api/configs/:id/rules` - 更新规则列表
+
+### 规则集管理
+- `GET /api/rule-sets` - 获取规则集列表
+- `POST /api/rule-sets` - 创建规则集
+- `GET /api/rule-sets/:id` - 获取规则集详情
+- `PUT /api/rule-sets/:id` - 更新规则集
+- `DELETE /api/rule-sets/:id` - 删除规则集
+- `GET /api/rule-sets/:id/export` - 导出规则集为 YAML
+- `GET /api/rule-sets/tags` - 获取规则集标签列表
 
 ### DNS
 - `GET /api/configs/:id/dns` - 获取 DNS 配置
