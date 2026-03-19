@@ -82,6 +82,7 @@
               <el-option label="IP-CIDR (IP 段)" value="IP-CIDR" />
               <el-option label="IP-CIDR6 (IPv6 段)" value="IP-CIDR6" />
               <el-option label="GEOIP (地理位置)" value="GEOIP" />
+              <el-option label="GEOSITE (地理站点)" value="GEOSITE" />
               <el-option label="IP-ASN (ASN 号)" value="IP-ASN" />
             </el-option-group>
             <el-option-group label="进程规则">
@@ -280,6 +281,7 @@ function getValuePlaceholder() {
     'IP-CIDR': '例如: 192.168.0.0/16',
     'IP-CIDR6': '例如: 2001:db8::/32',
     'GEOIP': '例如: CN',
+    'GEOSITE': '例如: google, cn, apple-cn',
     'IP-ASN': '例如: 13335',
     'PROCESS-NAME': '例如: chrome.exe',
     'PROCESS-PATH': '例如: /usr/bin/curl',
