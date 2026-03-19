@@ -4,7 +4,7 @@
 ](https://github.com/shenbourne/Clash-Configurator)
 [![Static Badge](https://img.shields.io/badge/docker-shenbourne%2Fclash--configurator-2496ED?style=flat&logo=docker&logoColor=white)](https://hub.docker.com/repository/docker/shenbourne/clash-configurator)
 
-一个基于 Vue 3 + Express 的 Clash 配置可视化生成和编辑器。
+一个基于 Vue 3 + Express 的 Clash 配置与规则集可视化生成和编辑器。
 
 ## ✨ 功能特性
 
