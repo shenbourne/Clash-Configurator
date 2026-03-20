@@ -1,8 +1,8 @@
 # Clash Configurator Metadata
-# id: c8c18e7c-47f6-4f74-922b-ee1b3f4b91b4
+# id: bf0d9ba6-7262-44c4-a6cd-527444991126
 # name: advanced
-# createdAt: 2026-03-12T13:39:07.121Z
-# updatedAt: 2026-03-16T14:09:43.290Z
+# createdAt: 2026-03-20T14:52:12.358Z
+# updatedAt: 2026-03-20T14:52:12.358Z
 
 mixed-port: 7890
 allow-lan: false
@@ -10,6 +10,48 @@ bind-address: "*"
 mode: rule
 log-level: info
 ipv6: false
+proxies: []
+proxy-providers:
+  Tkong-Edge:
+    type: http
+    url: https://scribe.tkong.uk/feb2026_304835972.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "Tkong Edge | "
+  Tkong-Core:
+    type: http
+    url: https://access.tkong.uk/s/9b0988cbedd58f4ff51fff0838712312
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "Tkong Core | "
+  Youtu:
+    type: http
+    url: https://scribe.shenb.one/proxy/youtu.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "Youtu | "
+  TAG:
+    type: http
+    url: https://scribe.shenb.one/proxy/TAG.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 300
+    override:
+      additional-prefix: "TAG | "
 proxy-groups:
   - name: 默认
     type: select
@@ -282,47 +324,6 @@ sniffer:
       ports:
         - 443
         - 8443
-proxy-providers:
-  Tkong-Edge:
-    type: http
-    url: https://scribe.tkong.uk/feb2026_304835972.yaml
-    interval: 3600
-    health-check:
-      enable: true
-      url: http://www.gstatic.com/generate_204
-      interval: 300
-    override:
-      additional-prefix: "Tkong Edge | "
-  Tkong-Core:
-    type: http
-    url: https://access.tkong.uk/s/9b0988cbedd58f4ff51fff0838712312
-    interval: 3600
-    health-check:
-      enable: true
-      url: http://www.gstatic.com/generate_204
-      interval: 300
-    override:
-      additional-prefix: "Tkong Core | "
-  Youtu:
-    type: http
-    url: https://scribe.shenb.one/proxy/youtu.yaml
-    interval: 3600
-    health-check:
-      enable: true
-      url: http://www.gstatic.com/generate_204
-      interval: 300
-    override:
-      additional-prefix: "Youtu | "
-  TAG:
-    type: http
-    url: https://scribe.shenb.one/proxy/TAG.yaml
-    interval: 3600
-    health-check:
-      enable: true
-      url: http://www.gstatic.com/generate_204
-      interval: 300
-    override:
-      additional-prefix: "TAG | "
 rule-providers:
   premium_reject:
     type: http

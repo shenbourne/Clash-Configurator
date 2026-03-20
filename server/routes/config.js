@@ -613,6 +613,28 @@ router.delete('/configs/:id/groups/:groupName', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/configs/:id/groups/order
+ * 更新代理组顺序
+ */
+router.put('/configs/:id/groups/order', async (req, res) => {
+  try {
+    const groups = req.body.groups || [];
+    const updatedConfig = await configService.updateConfig(req.params.id, { 'proxy-groups': groups });
+    
+    res.json({
+      success: true,
+      data: updatedConfig['proxy-groups'],
+      message: '代理组顺序更新成功'
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // ==================== 规则管理 ====================
 
 /**
@@ -1032,6 +1054,28 @@ router.delete('/configs/:id/rule-providers/:name', async (req, res) => {
       success: true,
       data: updatedConfig['rule-providers'],
       message: '规则集合删除成功'
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/configs/:id/rule-providers/order
+ * 更新 rule-providers 顺序
+ */
+router.put('/configs/:id/rule-providers/order', async (req, res) => {
+  try {
+    const providers = req.body.providers || {};
+    const updatedConfig = await configService.updateConfig(req.params.id, { 'rule-providers': providers });
+    
+    res.json({
+      success: true,
+      data: updatedConfig['rule-providers'],
+      message: '规则集合顺序更新成功'
     });
   } catch (error) {
     res.status(400).json({

@@ -17,49 +17,62 @@
         <el-button type="primary" @click="showAddDialog">添加第一个代理组</el-button>
       </el-empty>
       
-      <el-table v-else :data="groups" stripe style="width: 100%">
-        <el-table-column prop="name" label="名称" min-width="150" />
-        <el-table-column prop="type" label="类型" width="120">
-          <template #default="{ row }">
-            <el-tag size="small" :type="getGroupTypeTag(row.type)">{{ row.type }}</el-tag>
+      <div v-else class="groups-container">
+        <div class="drag-hint">
+          <el-icon><Rank /></el-icon>
+          <span>拖拽代理组可调整顺序</span>
+        </div>
+        <draggable
+          v-model="draggableGroups"
+          item-key="name"
+          handle=".drag-handle"
+          animation="200"
+          ghost-class="ghost"
+          @end="onDragEnd"
+        >
+          <template #item="{ element, index }">
+            <div class="group-item">
+              <div class="drag-handle">
+                <el-icon><Rank /></el-icon>
+              </div>
+              <div class="group-index">{{ index + 1 }}</div>
+              <div class="group-name">{{ element.name }}</div>
+              <div class="group-type">
+                <el-tag size="small" :type="getGroupTypeTag(element.type)">{{ element.type }}</el-tag>
+              </div>
+              <div class="group-count">
+                {{ (element.proxies?.length || 0) + (element.use?.length || 0) }} 节点
+              </div>
+              <div class="group-proxies">
+                <el-tag 
+                  v-for="(proxy, idx) in element.proxies?.slice(0, 3)" 
+                  :key="idx"
+                  size="small"
+                  style="margin-right: 4px; margin-bottom: 4px;"
+                >
+                  {{ proxy }}
+                </el-tag>
+                <el-tag 
+                  v-for="(provider, idx) in element.use?.slice(0, 2)" 
+                  :key="'use-' + idx"
+                  size="small"
+                  type="success"
+                  style="margin-right: 4px; margin-bottom: 4px;"
+                >
+                  📦 {{ provider }}
+                </el-tag>
+                <el-tag v-if="(element.proxies?.length || 0) + (element.use?.length || 0) > 5" size="small" type="info">
+                  +{{ (element.proxies?.length || 0) + (element.use?.length || 0) - 5 }}
+                </el-tag>
+              </div>
+              <div class="group-actions">
+                <el-button link type="primary" @click="editGroup(element)">编辑</el-button>
+                <el-button link type="danger" @click="removeGroup(element)">删除</el-button>
+              </div>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column label="节点数量" width="100">
-          <template #default="{ row }">
-            {{ (row.proxies?.length || 0) + (row.use?.length || 0) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="节点列表" min-width="200">
-          <template #default="{ row }">
-            <el-tag 
-              v-for="(proxy, index) in row.proxies?.slice(0, 5)" 
-              :key="index"
-              size="small"
-              style="margin-right: 4px; margin-bottom: 4px;"
-            >
-              {{ proxy }}
-            </el-tag>
-            <el-tag 
-              v-for="(provider, index) in row.use?.slice(0, 3)" 
-              :key="'use-' + index"
-              size="small"
-              type="success"
-              style="margin-right: 4px; margin-bottom: 4px;"
-            >
-              📦 {{ provider }}
-            </el-tag>
-            <el-tag v-if="(row.proxies?.length || 0) + (row.use?.length || 0) > 8" size="small" type="info">
-              +{{ (row.proxies?.length || 0) + (row.use?.length || 0) - 8 }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="editGroup(row)">编辑</el-button>
-            <el-button link type="danger" @click="removeGroup(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        </draggable>
+      </div>
     </el-card>
     
     <!-- 添加/编辑代理组对话框 -->
@@ -190,6 +203,8 @@
 import { ref, computed, reactive, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Rank } from '@element-plus/icons-vue'
+import draggable from 'vuedraggable'
 import { useConfigStore } from '@/stores/config'
 
 const route = useRoute()
@@ -201,6 +216,35 @@ const submitting = ref(false)
 const formRef = ref(null)
 
 const groups = computed(() => store.currentConfig?.['proxy-groups'] || [])
+
+// 用于拖拽的响应式数组
+const draggableGroups = ref([])
+
+// 监听 groups 变化，更新 draggableGroups
+watch(groups, (newGroups) => {
+  draggableGroups.value = newGroups.map((group, index) => ({
+    ...group,
+    id: `group-${index}-${group.name}`
+  }))
+}, { immediate: true, deep: true })
+
+// 拖拽结束处理
+async function onDragEnd() {
+  await saveGroupsOrder()
+}
+
+// 保存代理组顺序
+async function saveGroupsOrder() {
+  try {
+    // 提取排序后的代理组数据（去除临时 id）
+    const orderedGroups = draggableGroups.value.map(({ id, ...rest }) => rest)
+    await store.updateProxyGroupsOrder(route.params.id, orderedGroups)
+    ElMessage.success('代理组顺序已更新')
+  } catch (e) {
+    // 错误已处理
+  }
+}
+
 const allProxies = computed(() => {
   const proxyNames = store.currentConfig?.proxies?.map(p => p.name) || []
   const groupNames = groups.value.map(g => g.name)
@@ -381,5 +425,91 @@ async function submitForm() {
     color: #909399;
     margin-top: 4px;
   }
+  
+  .groups-container {
+    .drag-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #909399;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+  }
+  
+  .group-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: #fafafa;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    
+    &:hover {
+      background: #f0f0f0;
+    }
+    
+    .drag-handle {
+      cursor: grab;
+      color: #c0c4cc;
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      
+      &:hover {
+        color: #909399;
+      }
+      
+      &:active {
+        cursor: grabbing;
+      }
+    }
+    
+    .group-index {
+      width: 32px;
+      color: #909399;
+      font-size: 12px;
+      text-align: center;
+    }
+    
+    .group-name {
+      min-width: 120px;
+      font-weight: 500;
+      margin-right: 12px;
+    }
+    
+    .group-type {
+      width: 100px;
+      flex-shrink: 0;
+    }
+    
+    .group-count {
+      width: 70px;
+      color: #606266;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    
+    .group-proxies {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      padding: 0 12px;
+    }
+    
+    .group-actions {
+      width: 100px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+  }
+}
+
+// 拖拽样式
+.ghost {
+  opacity: 0.5;
+  background: #f0f0f0;
+  border: 1px dashed #dcdfe6;
 }
 </style>

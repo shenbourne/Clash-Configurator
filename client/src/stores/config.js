@@ -211,6 +211,16 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
+  // 更新代理组顺序
+  async function updateProxyGroupsOrder(configId, groups) {
+    try {
+      const res = await api.updateProxyGroupsOrder(configId, groups)
+      currentConfig.value['proxy-groups'] = res.data
+    } catch (e) {
+      throw e
+    }
+  }
+
   // 规则操作
   async function updateRules(configId, rules) {
     try {
@@ -288,6 +298,16 @@ export const useConfigStore = defineStore('config', () => {
   async function deleteRuleProvider(configId, providerName) {
     try {
       const res = await api.deleteRuleProvider(configId, providerName)
+      currentConfig.value['rule-providers'] = res.data
+    } catch (e) {
+      throw e
+    }
+  }
+
+  // 更新 rule-providers 顺序
+  async function updateRuleProvidersOrder(configId, providers) {
+    try {
+      const res = await api.updateRuleProvidersOrder(configId, providers)
       currentConfig.value['rule-providers'] = res.data
     } catch (e) {
       throw e
@@ -394,6 +414,7 @@ export const useConfigStore = defineStore('config', () => {
     addProxyGroup,
     updateProxyGroup,
     deleteProxyGroup,
+    updateProxyGroupsOrder,
     
     // Proxy Provider 操作
     addProxyProvider,
@@ -404,6 +425,7 @@ export const useConfigStore = defineStore('config', () => {
     addRuleProvider,
     updateRuleProvider,
     deleteRuleProvider,
+    updateRuleProvidersOrder,
     
     // 规则操作
     updateRules,

@@ -17,73 +17,67 @@
         <el-button type="primary" @click="showAddDialog">添加第一个规则集合</el-button>
       </el-empty>
       
-      <div v-else class="provider-list">
-        <el-card 
-          v-for="provider in providerList" 
-          :key="provider.name"
-          class="provider-card"
-          shadow="hover"
+      <div v-else class="providers-container">
+        <div class="drag-hint">
+          <el-icon><Rank /></el-icon>
+          <span>拖拽规则集合可调整顺序</span>
+        </div>
+        <draggable
+          v-model="draggableProviders"
+          item-key="name"
+          handle=".drag-handle"
+          animation="200"
+          ghost-class="ghost"
+          @end="onDragEnd"
         >
-          <div class="provider-header">
-            <div class="provider-title">
-              <span class="name">{{ provider.name }}</span>
-              <el-tag size="small" :type="getTypeTagType(provider.type)">
-                {{ getTypeLabel(provider.type) }}
-              </el-tag>
-              <el-tag size="small" type="warning" v-if="provider.behavior">
-                {{ getBehaviorLabel(provider.behavior) }}
-              </el-tag>
+          <template #item="{ element, index }">
+            <div class="provider-item">
+              <div class="drag-handle">
+                <el-icon><Rank /></el-icon>
+              </div>
+              <div class="provider-index">{{ index + 1 }}</div>
+              <div class="provider-main">
+                <div class="provider-header">
+                  <span class="name">{{ element.name }}</span>
+                  <el-tag size="small" :type="getTypeTagType(element.type)">
+                    {{ getTypeLabel(element.type) }}
+                  </el-tag>
+                  <el-tag size="small" type="warning" v-if="element.behavior">
+                    {{ getBehaviorLabel(element.behavior) }}
+                  </el-tag>
+                </div>
+                <div class="provider-info">
+                  <!-- 本地规则集类型 -->
+                  <template v-if="element.type === 'local'">
+                    <span class="info-text">
+                      本地规则集: {{ element.localRuleSet?.name || element.localRuleSetId }}
+                    </span>
+                    <span class="info-text" v-if="element.localRuleSet?.description">
+                      {{ element.localRuleSet.description }}
+                    </span>
+                  </template>
+                  
+                  <!-- HTTP 类型配置 -->
+                  <template v-else-if="element.type === 'http'">
+                    <span class="info-text url">{{ element.url }}</span>
+                    <span class="info-text" v-if="element.interval">
+                      更新间隔: {{ element.interval }} 秒
+                    </span>
+                  </template>
+                  
+                  <!-- File 类型配置 -->
+                  <template v-else-if="element.type === 'file'">
+                    <span class="info-text">{{ element.path }}</span>
+                  </template>
+                </div>
+              </div>
+              <div class="provider-actions">
+                <el-button link type="primary" @click="editProvider(element)">编辑</el-button>
+                <el-button link type="danger" @click="removeProvider(element)">删除</el-button>
+              </div>
             </div>
-            <div class="provider-actions">
-              <el-button link type="primary" @click="editProvider(provider)">编辑</el-button>
-              <el-button link type="danger" @click="removeProvider(provider)">删除</el-button>
-            </div>
-          </div>
-          
-          <div class="provider-info">
-            <!-- 本地规则集类型 -->
-            <template v-if="provider.type === 'local'">
-              <div class="info-item">
-                <span class="label">本地规则集:</span>
-                <span class="value">{{ provider.localRuleSet?.name || provider.localRuleSetId }}</span>
-              </div>
-              <div class="info-item" v-if="provider.localRuleSet?.description">
-                <span class="label">描述:</span>
-                <span class="value">{{ provider.localRuleSet.description }}</span>
-              </div>
-            </template>
-            
-            <!-- HTTP 类型配置 -->
-            <template v-else-if="provider.type === 'http'">
-              <div class="info-item">
-                <span class="label">订阅地址:</span>
-                <span class="value url">{{ provider.url }}</span>
-              </div>
-              <div class="info-item" v-if="provider.interval">
-                <span class="label">更新间隔:</span>
-                <span class="value">{{ provider.interval }} 秒</span>
-              </div>
-            </template>
-            
-            <!-- File 类型配置 -->
-            <template v-else-if="provider.type === 'file'">
-              <div class="info-item">
-                <span class="label">文件路径:</span>
-                <span class="value">{{ provider.path }}</span>
-              </div>
-            </template>
-            
-            <div class="info-item" v-if="provider.path && provider.type !== 'file'">
-              <span class="label">存储路径:</span>
-              <span class="value">{{ provider.path }}</span>
-            </div>
-            
-            <div class="info-item" v-if="provider.format">
-              <span class="label">格式:</span>
-              <span class="value">{{ provider.format.toUpperCase() }}</span>
-            </div>
-          </div>
-        </el-card>
+          </template>
+        </draggable>
       </div>
     </el-card>
     
@@ -210,6 +204,8 @@
 import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Rank } from '@element-plus/icons-vue'
+import draggable from 'vuedraggable'
 import { useConfigStore } from '@/stores/config'
 import { useRuleSetStore } from '@/stores/ruleSet'
 
@@ -239,6 +235,37 @@ const providerList = computed(() => {
     ...config
   }))
 })
+
+// 用于拖拽的响应式数组
+const draggableProviders = ref([])
+
+// 监听 providerList 变化，更新 draggableProviders
+watch(providerList, (newList) => {
+  draggableProviders.value = newList.map((provider, index) => ({
+    ...provider,
+    id: `provider-${index}-${provider.name}`
+  }))
+}, { immediate: true, deep: true })
+
+// 拖拽结束处理
+async function onDragEnd() {
+  await saveProvidersOrder()
+}
+
+// 保存规则集合顺序
+async function saveProvidersOrder() {
+  try {
+    // 构建有序的 rule-providers 对象
+    const orderedProviders = {}
+    draggableProviders.value.forEach(({ id, name, ...rest }) => {
+      orderedProviders[name] = rest
+    })
+    await store.updateRuleProvidersOrder(route.params.id, orderedProviders)
+    ElMessage.success('规则集合顺序已更新')
+  } catch (e) {
+    // 错误已处理
+  }
+}
 
 const defaultProviderForm = {
   name: '',
@@ -434,51 +461,97 @@ onMounted(() => {
     align-items: center;
   }
   
-  .provider-list {
-    display: grid;
-    gap: 16px;
+  .providers-container {
+    .drag-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #909399;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
   }
   
-  .provider-card {
-    .provider-header {
+  .provider-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 16px;
+    background: #fafafa;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    
+    &:hover {
+      background: #f0f0f0;
+    }
+    
+    .drag-handle {
+      cursor: grab;
+      color: #c0c4cc;
+      margin-right: 12px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      padding-top: 4px;
       
-      .provider-title {
+      &:hover {
+        color: #909399;
+      }
+      
+      &:active {
+        cursor: grabbing;
+      }
+    }
+    
+    .provider-index {
+      width: 32px;
+      color: #909399;
+      font-size: 12px;
+      text-align: center;
+      padding-top: 4px;
+    }
+    
+    .provider-main {
+      flex: 1;
+      min-width: 0;
+      
+      .provider-header {
         display: flex;
         align-items: center;
         gap: 8px;
+        margin-bottom: 8px;
         
         .name {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 600;
+        }
+      }
+      
+      .provider-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        
+        .info-text {
+          font-size: 13px;
+          color: #606266;
+          
+          &.url {
+            color: #409eff;
+            word-break: break-all;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
         }
       }
     }
     
-    .provider-info {
-      .info-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-        
-        .label {
-          color: #909399;
-          width: 80px;
-          flex-shrink: 0;
-        }
-        
-        .value {
-          flex: 1;
-          
-          &.url {
-            word-break: break-all;
-            color: #409eff;
-          }
-        }
-      }
+    .provider-actions {
+      width: 100px;
+      text-align: right;
+      flex-shrink: 0;
+      padding-top: 4px;
     }
   }
   
@@ -503,5 +576,12 @@ onMounted(() => {
       margin-left: auto;
     }
   }
+}
+
+// 拖拽样式
+.ghost {
+  opacity: 0.5;
+  background: #f0f0f0;
+  border: 1px dashed #dcdfe6;
 }
 </style>

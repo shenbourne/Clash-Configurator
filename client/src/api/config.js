@@ -190,6 +190,15 @@ export function deleteProxyGroup(configId, groupName) {
   return request.delete(`/configs/${configId}/groups/${encodeURIComponent(groupName)}`)
 }
 
+/**
+ * 更新代理组顺序
+ * @param {string} configId - 配置 ID
+ * @param {Array} groups - 排序后的代理组数组
+ */
+export function updateProxyGroupsOrder(configId, groups) {
+  return request.put(`/configs/${configId}/groups/order`, { groups })
+}
+
 // ==================== 规则管理 ====================
 
 /**
@@ -302,6 +311,15 @@ export function updateRuleProvider(configId, name, provider) {
  */
 export function deleteRuleProvider(configId, name) {
   return request.delete(`/configs/${configId}/rule-providers/${encodeURIComponent(name)}`)
+}
+
+/**
+ * 更新 rule-providers 顺序
+ * @param {string} configId - 配置 ID
+ * @param {Object} providers - 排序后的 rule-providers 对象
+ */
+export function updateRuleProvidersOrder(configId, providers) {
+  return request.put(`/configs/${configId}/rule-providers/order`, { providers })
 }
 
 // ==================== 高级配置管理 ====================
