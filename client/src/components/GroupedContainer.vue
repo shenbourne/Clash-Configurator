@@ -1,6 +1,6 @@
 <template>
   <div class="grouped-container">
-    <div v-for="(group, groupIndex) in modelValue" :key="groupIndex" class="group">
+    <div v-for="(group, groupIndex) in localGroups" :key="groupIndex" class="group">
       <!-- 分组头部 -->
       <div class="group-header" :class="{ collapsed: group.collapsed }" @click="toggleGroup(groupIndex)">
         <el-icon class="arrow-icon" :class="{ rotated: !group.collapsed }">
@@ -12,11 +12,11 @@
           <el-button link type="primary" size="small" @click="editGroupName(groupIndex)">
             <el-icon><Edit /></el-icon>
           </el-button>
-          <el-button 
-            v-if="group.name" 
-            link 
-            type="danger" 
-            size="small" 
+          <el-button
+            v-if="group.name"
+            link
+            type="danger"
+            size="small"
             @click="deleteGroup(groupIndex)"
           >
             <el-icon><Delete /></el-icon>
@@ -26,31 +26,31 @@
       
       <!-- 分组内容 -->
       <div v-show="!group.collapsed" class="group-content">
-        <draggable
-          v-model="group.items"
-          :group="draggableGroup"
-          item-key="id"
-          :handle="handleSelector"
-          animation="200"
-          ghost-class="ghost"
-          :class="contentClass"
-          @end="onDragEnd"
-        >
-          <template #item="{ element, index }">
-            <slot 
-              name="item" 
-              :element="element" 
-              :group-index="groupIndex" 
+        <div :class="contentClass">
+          <div
+            v-for="(element, index) in group.items"
+            :key="element._dragId"
+            class="draggable-item"
+            draggable="true"
+            @dragstart="onDragStart($event, groupIndex, index)"
+            @dragend="onDragEnd"
+            @dragover.prevent
+            @drop="onDrop($event, groupIndex, index)"
+          >
+            <slot
+              name="item"
+              :element="element"
+              :group-index="groupIndex"
               :item-index="index"
             />
-          </template>
-        </draggable>
+          </div>
+        </div>
       </div>
     </div>
     
     <!-- 添加分组按钮 -->
     <div class="add-group-btn-container">
-      <el-button type="dashed" @click="showAddGroupDialog">
+      <el-button @click="showAddGroupDialog">
         <el-icon><Plus /></el-icon>
         添加分组
       </el-button>
@@ -106,7 +106,6 @@
 import { ref, reactive, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Edit, Delete, Plus } from '@element-plus/icons-vue'
-import draggable from 'vuedraggable'
 
 const props = defineProps({
   modelValue: {
@@ -133,6 +132,35 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change'])
 
+// 本地响应式数据，用于拖拽操作
+const localGroups = ref([])
+
+// 用于生成唯一 ID 的计数器
+let dragIdCounter = 0
+
+// 拖拽状态
+const dragState = ref({
+  isDragging: false,
+  sourceGroupIndex: null,
+  sourceItemIndex: null
+})
+
+// 为 items 添加唯一拖拽 ID
+function addDragIds(groups) {
+  return groups.map(group => ({
+    ...group,
+    items: (group.items || []).map(item => ({
+      ...item,
+      _dragId: item._dragId || `drag-${++dragIdCounter}`
+    }))
+  }))
+}
+
+// 监听 props 变化，更新本地数据
+watch(() => props.modelValue, (newVal) => {
+  localGroups.value = addDragIds(JSON.parse(JSON.stringify(newVal)))
+}, { immediate: true, deep: true })
+
 // 添加分组对话框
 const addGroupDialogVisible = ref(false)
 const addGroupForm = reactive({
@@ -150,13 +178,7 @@ const editingGroupIndex = ref(null)
 
 // 切换分组折叠状态
 function toggleGroup(index) {
-  const newGroups = props.modelValue.map((group, i) => {
-    if (i === index) {
-      return { ...group, collapsed: !group.collapsed }
-    }
-    return group
-  })
-  emit('update:modelValue', newGroups)
+  localGroups.value[index].collapsed = !localGroups.value[index].collapsed
 }
 
 // 显示添加分组对话框
@@ -173,17 +195,13 @@ function submitAddGroup() {
   }
   
   // 检查是否已存在同名分组
-  if (props.modelValue.some(g => g.name === addGroupForm.name.trim())) {
+  if (localGroups.value.some(g => g.name === addGroupForm.name.trim())) {
     ElMessage.warning('分组名称已存在')
     return
   }
   
-  const newGroups = [
-    ...props.modelValue,
-    { name: addGroupForm.name.trim(), collapsed: false, items: [] }
-  ]
-  emit('update:modelValue', newGroups)
-  emit('change')
+  localGroups.value.push({ name: addGroupForm.name.trim(), collapsed: false, items: [] })
+  emitChange()
   addGroupDialogVisible.value = false
   ElMessage.success('分组已添加')
 }
@@ -191,7 +209,7 @@ function submitAddGroup() {
 // 编辑分组名称
 function editGroupName(index) {
   editingGroupIndex.value = index
-  editGroupForm.name = props.modelValue[index].name || ''
+  editGroupForm.name = localGroups.value[index].name || ''
   editGroupDialogVisible.value = true
 }
 
@@ -203,7 +221,7 @@ function submitEditGroup() {
   }
   
   // 检查是否已存在同名分组（排除当前分组）
-  const exists = props.modelValue.some((g, i) => 
+  const exists = localGroups.value.some((g, i) =>
     i !== editingGroupIndex.value && g.name === editGroupForm.name.trim()
   )
   
@@ -212,14 +230,8 @@ function submitEditGroup() {
     return
   }
   
-  const newGroups = props.modelValue.map((group, i) => {
-    if (i === editingGroupIndex.value) {
-      return { ...group, name: editGroupForm.name.trim() }
-    }
-    return group
-  })
-  emit('update:modelValue', newGroups)
-  emit('change')
+  localGroups.value[editingGroupIndex.value].name = editGroupForm.name.trim()
+  emitChange()
   editGroupDialogVisible.value = false
   ElMessage.success('分组名称已更新')
 }
@@ -228,13 +240,13 @@ function submitEditGroup() {
 async function deleteGroup(index) {
   try {
     await ElMessageBox.confirm(
-      `确定要删除分组"${props.modelValue[index].name || '默认'}"吗？该分组内的 ${props.modelValue[index].items?.length || 0} 个项目将被移到默认分组。`,
+      `确定要删除分组"${localGroups.value[index].name || '默认'}"吗？该分组内的 ${localGroups.value[index].items?.length || 0} 个项目将被移到默认分组。`,
       '删除确认',
       { type: 'warning' }
     )
     
-    const currentGroup = props.modelValue[index]
-    const newGroups = props.modelValue.filter((_, i) => i !== index)
+    const currentGroup = localGroups.value[index]
+    const newGroups = localGroups.value.filter((_, i) => i !== index)
     
     // 将删除分组的项目移到默认分组（第一个分组）
     if (currentGroup.items && currentGroup.items.length > 0) {
@@ -247,17 +259,144 @@ async function deleteGroup(index) {
       }
     }
     
-    emit('update:modelValue', newGroups)
-    emit('change')
+    localGroups.value = newGroups
+    emitChange()
     ElMessage.success('分组已删除')
   } catch (e) {
     // 取消或错误
   }
 }
 
-// 拖拽结束处理
-async function onDragEnd() {
-  emit('change')
+// 拖拽开始
+function onDragStart(event, groupIndex, itemIndex) {
+  console.log('Drag start:', { groupIndex, itemIndex })
+  dragState.value.isDragging = true
+  dragState.value.sourceGroupIndex = groupIndex
+  dragState.value.sourceItemIndex = itemIndex
+  
+  // 设置拖拽数据（使用 dataTransfer 保存源位置信息）
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('application/json', JSON.stringify({ groupIndex, itemIndex }))
+  
+  // 添加拖拽样式（使用 setTimeout 确保样式在拖拽开始后应用）
+  setTimeout(() => {
+    event.target.classList.add('dragging')
+  }, 0)
+}
+
+// 拖拽结束
+function onDragEnd(event) {
+  console.log('Drag end')
+  dragState.value.isDragging = false
+  dragState.value.sourceGroupIndex = null
+  dragState.value.sourceItemIndex = null
+  
+  // 移除拖拽样式
+  event.target.classList.remove('dragging')
+  
+  // 移除所有可能残留的 dragging 类
+  document.querySelectorAll('.dragging').forEach(el => {
+    el.classList.remove('dragging')
+  })
+}
+
+// 拖拽经过
+function onDragOver(event) {
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'move'
+}
+
+// 放置处理
+function onDrop(event, targetGroupIndex, targetItemIndex) {
+  event.preventDefault()
+  console.log('Drop:', { targetGroupIndex, targetItemIndex })
+  
+  // 从 dataTransfer 获取源位置信息
+  let sourceData
+  try {
+    const jsonData = event.dataTransfer.getData('application/json')
+    sourceData = JSON.parse(jsonData)
+  } catch (e) {
+    console.error('Failed to parse drag data:', e)
+    return
+  }
+  
+  if (!sourceData) {
+    console.log('No source data')
+    return
+  }
+  
+  const sourceGroupIndex = sourceData.groupIndex
+  const sourceItemIndex = sourceData.itemIndex
+  
+  console.log('Source:', { sourceGroupIndex, sourceItemIndex })
+  
+  // 如果是同一位置，不做任何操作
+  if (sourceGroupIndex === targetGroupIndex && sourceItemIndex === targetItemIndex) {
+    console.log('Same position, skip')
+    return
+  }
+  
+  // 获取源项目
+  const sourceGroup = localGroups.value[sourceGroupIndex]
+  if (!sourceGroup || !sourceGroup.items) {
+    console.error('Source group not found')
+    return
+  }
+  
+  const sourceItem = sourceGroup.items[sourceItemIndex]
+  if (!sourceItem) {
+    console.error('Source item not found')
+    return
+  }
+  
+  console.log('Moving item:', sourceItem)
+  
+  // 创建新的分组数组（避免直接修改）
+  const newGroups = JSON.parse(JSON.stringify(localGroups.value))
+  
+  // 从源位置移除
+  newGroups[sourceGroupIndex].items.splice(sourceItemIndex, 1)
+  
+  // 计算目标位置（考虑移除后的偏移）
+  let newIndex = targetItemIndex
+  if (sourceGroupIndex === targetGroupIndex && sourceItemIndex < targetItemIndex) {
+    newIndex--
+  }
+  
+  // 确保目标分组存在
+  if (!newGroups[targetGroupIndex].items) {
+    newGroups[targetGroupIndex].items = []
+  }
+  
+  // 插入到目标位置
+  newGroups[targetGroupIndex].items.splice(newIndex, 0, sourceItem)
+  
+  // 更新本地数据
+  localGroups.value = newGroups
+  
+  // 发送更新
+  emitChange()
+  
+  console.log('Drop completed')
+}
+
+// 移除 items 中的 _dragId 属性
+function removeDragIds(groups) {
+  return groups.map(group => ({
+    ...group,
+    items: (group.items || []).map(item => {
+      const { _dragId, ...rest } = item
+      return rest
+    })
+  }))
+}
+
+// 发送变更
+function emitChange() {
+  const cleanedGroups = removeDragIds(localGroups.value)
+  emit('update:modelValue', JSON.parse(JSON.stringify(cleanedGroups)))
+  emit('change', JSON.parse(JSON.stringify(cleanedGroups)))
 }
 </script>
 
@@ -328,10 +467,34 @@ async function onDragEnd() {
   }
 }
 
-// 拖拽样式
-.ghost {
-  opacity: 0.5;
-  background: #f0f0f0;
-  border: 1px dashed #dcdfe6;
+// 拖拽项目样式
+.draggable-item {
+  cursor: grab;
+  margin-bottom: 8px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
+  &.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+  }
+  
+  &:active {
+    cursor: grabbing;
+  }
+}
+</style>
+
+<style lang="scss">
+// 全局样式 - 确保拖拽手柄能正确工作
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+  
+  &:active {
+    cursor: grabbing;
+  }
 }
 </style>

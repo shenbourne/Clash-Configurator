@@ -380,3 +380,32 @@ export function exportConfigToDirectory(configId) {
 export function exportAllConfigs() {
   return request.post('/export-all')
 }
+
+// ==================== 分组管理 ====================
+
+/**
+ * 获取配置的所有分组信息
+ * @param {string} configId - 配置 ID
+ */
+export function getConfigGroups(configId) {
+  return request.get(`/configs/${configId}/grouping`)
+}
+
+/**
+ * 获取配置指定字段的分组信息
+ * @param {string} configId - 配置 ID
+ * @param {string} field - 字段名
+ */
+export function getConfigFieldGroups(configId, field) {
+  return request.get(`/configs/${configId}/grouping/${field}`)
+}
+
+/**
+ * 更新配置指定字段的分组信息
+ * @param {string} configId - 配置 ID
+ * @param {string} field - 字段名
+ * @param {Array} groups - 分组数据
+ */
+export function updateConfigGroups(configId, field, groups) {
+  return request.put(`/configs/${configId}/grouping/${field}`, { groups })
+}

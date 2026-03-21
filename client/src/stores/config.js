@@ -381,6 +381,150 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
+  // ==================== 分组操作 ====================
+
+  // 获取分组信息
+  const configGroups = computed(() => {
+    return currentConfig.value?._groups || {}
+  })
+
+  // 获取指定字段的分组信息
+  function getFieldGroups(field) {
+    return currentConfig.value?._groups?.[field] || null
+  }
+
+  // 更新分组信息
+  async function updateConfigGroups(configId, field, groups) {
+    try {
+      const res = await api.updateConfigGroups(configId, field, groups)
+      if (currentConfig.value) {
+        currentConfig.value._groups = res.data
+        // 同步更新实际数据
+        if (field === 'rules') {
+          // rules 需要转换为字符串数组
+          currentConfig.value.rules = groupsToRuleStrings(groups)
+        } else if (field === 'proxy-groups') {
+          currentConfig.value['proxy-groups'] = groupsToArray(groups)
+        } else if (field === 'proxies') {
+          currentConfig.value.proxies = groupsToArray(groups)
+        } else if (field === 'rule-providers') {
+          currentConfig.value['rule-providers'] = groupsToObject(groups)
+        } else if (field === 'proxy-providers') {
+          currentConfig.value['proxy-providers'] = groupsToObject(groups)
+        }
+      }
+    } catch (e) {
+      throw e
+    }
+  }
+
+  // 本地更新分组信息（不立即保存）
+  function updateGroupsLocal(field, groups) {
+    if (currentConfig.value) {
+      if (!currentConfig.value._groups) {
+        currentConfig.value._groups = {}
+      }
+      currentConfig.value._groups[field] = groups
+    }
+  }
+
+  // 辅助函数：将规则对象转换为字符串
+  function ruleObjectToString(item) {
+    // 如果有 raw 属性，直接使用
+    if (item.raw) {
+      return item.raw
+    }
+    
+    // 如果是字符串，直接返回
+    if (typeof item === 'string') {
+      return item
+    }
+    
+    // 如果是对象，构建规则字符串
+    if (item && typeof item === 'object') {
+      const type = item.type || ''
+      const value = item.value || ''
+      const target = item.target || ''
+      const noResolve = item.noResolve ? ',no-resolve' : ''
+      
+      // MATCH 规则特殊处理
+      if (type === 'MATCH') {
+        return `MATCH,${target}`
+      }
+      
+      // 其他规则
+      if (type && value && target) {
+        return `${type},${value},${target}${noResolve}`
+      }
+    }
+    
+    return ''
+  }
+
+  // 辅助函数：分组数组转普通数组
+  function groupsToArray(groups) {
+    if (!groups || !Array.isArray(groups)) return []
+    return groups.flatMap(g => {
+      const items = g.items || []
+      // 处理可能的嵌套数组情况
+      return items.map(item => {
+        if (Array.isArray(item)) {
+          // 如果是数组，取第一个元素（如果是对象）
+          let unwrapped = item
+          while (Array.isArray(unwrapped) && unwrapped.length > 0) {
+            unwrapped = unwrapped[0]
+          }
+          return unwrapped && typeof unwrapped === 'object' ? unwrapped : item
+        }
+        return item
+      })
+    })
+  }
+
+  // 辅助函数：分组数组转规则字符串数组
+  function groupsToRuleStrings(groups) {
+    if (!groups || !Array.isArray(groups)) return []
+    return groups.flatMap(g => {
+      const items = g.items || []
+      return items.map(item => ruleObjectToString(item)).filter(r => r)
+    })
+  }
+
+  // 辅助函数：分组数组转普通对象
+  function groupsToObject(groups) {
+    if (!groups || !Array.isArray(groups)) return {}
+    const result = {}
+    for (const group of groups) {
+      for (const item of (group.items || [])) {
+        if (item && item.name) {
+          const { name, ...data } = item
+          result[name] = data
+        }
+      }
+    }
+    return result
+  }
+
+  // 辅助函数：普通数组转分组数组
+  function arrayToGroups(items) {
+    if (!items || !Array.isArray(items)) {
+      return [{ name: null, items: [] }]
+    }
+    return [{ name: null, items: [...items] }]
+  }
+
+  // 辅助函数：普通对象转分组数组
+  function objectToGroups(obj) {
+    if (!obj || typeof obj !== 'object') {
+      return [{ name: null, items: [] }]
+    }
+    const items = Object.entries(obj).map(([name, data]) => ({
+      name,
+      ...data
+    }))
+    return [{ name: null, items }]
+  }
+
   return {
     // 状态
     configs,
@@ -394,6 +538,7 @@ export const useConfigStore = defineStore('config', () => {
     groupNames,
     providerNames,
     allProxyAndGroupNames,
+    configGroups,
     
     // 操作方法
     fetchConfigs,
@@ -435,6 +580,15 @@ export const useConfigStore = defineStore('config', () => {
     
     // 高级配置操作
     updateAdvancedConfig,
+    
+    // 分组操作
+    getFieldGroups,
+    updateConfigGroups,
+    updateGroupsLocal,
+    groupsToArray,
+    groupsToObject,
+    arrayToGroups,
+    objectToGroups,
     
     // 本地更新方法
     updateCurrentConfigLocal,

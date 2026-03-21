@@ -2,15 +2,53 @@
 # id: bf0d9ba6-7262-44c4-a6cd-527444991126
 # name: advanced
 # createdAt: 2026-03-20T14:52:12.358Z
-# updatedAt: 2026-03-20T14:52:12.358Z
+# updatedAt: 2026-03-21T01:28:58.329Z
 
 mixed-port: 7890
+
 allow-lan: false
-bind-address: "*"
+
+bind-address: '*'
+
 mode: rule
+
 log-level: info
+
 ipv6: false
-proxies: []
+
+sniffer:
+  enable: true
+  parse-pure-ip: true
+  sniff:
+    HTTP:
+      ports:
+        - 80
+        - 8080-8880
+      override-destination: true
+    TLS:
+      ports:
+        - 443
+        - 8443
+    QUIC:
+      ports:
+        - 443
+        - 8443
+
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - '*.lan'
+    - localhost.ptlogin2.qq.com
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  fallback:
+    - tls://8.8.8.8:853
+    - tls://1.1.1.1:853
+
 proxy-providers:
   Tkong-Edge:
     type: http
@@ -21,7 +59,7 @@ proxy-providers:
       url: http://www.gstatic.com/generate_204
       interval: 300
     override:
-      additional-prefix: "Tkong Edge | "
+      additional-prefix: 'Tkong Edge | '
   Tkong-Core:
     type: http
     url: https://access.tkong.uk/s/9b0988cbedd58f4ff51fff0838712312
@@ -31,7 +69,7 @@ proxy-providers:
       url: http://www.gstatic.com/generate_204
       interval: 300
     override:
-      additional-prefix: "Tkong Core | "
+      additional-prefix: 'Tkong Core | '
   Youtu:
     type: http
     url: https://scribe.shenb.one/proxy/youtu.yaml
@@ -41,7 +79,7 @@ proxy-providers:
       url: http://www.gstatic.com/generate_204
       interval: 300
     override:
-      additional-prefix: "Youtu | "
+      additional-prefix: 'Youtu | '
   TAG:
     type: http
     url: https://scribe.shenb.one/proxy/TAG.yaml
@@ -51,7 +89,8 @@ proxy-providers:
       url: http://www.gstatic.com/generate_204
       interval: 300
     override:
-      additional-prefix: "TAG | "
+      additional-prefix: 'TAG | '
+
 proxy-groups:
   - name: 默认
     type: select
@@ -76,7 +115,7 @@ proxy-groups:
     include-all: true
     interval: 300
     url: http://www.gstatic.com/generate_204
-    filter: "Tkong Core "
+    filter: 'Tkong Core '
     proxies: []
     tolerance: 50
     use:
@@ -86,7 +125,7 @@ proxy-groups:
     type: url-test
     include-all: true
     interval: 300
-    filter: "Tkong Edge "
+    filter: 'Tkong Edge '
     proxies: []
     use:
       - Tkong-Edge
@@ -96,7 +135,7 @@ proxy-groups:
     type: url-test
     include-all: true
     interval: 300
-    filter: "Youtu "
+    filter: 'Youtu '
     proxies: []
     use:
       - Youtu
@@ -106,7 +145,7 @@ proxy-groups:
     type: url-test
     include-all: true
     interval: 300
-    filter: "TAG "
+    filter: 'TAG '
     proxies: []
     use:
       - TAG
@@ -171,6 +210,12 @@ proxy-groups:
     include-all: true
     interval: 300
     icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Spotify.png
+  - name: Github
+    type: url-test
+    include-all: true
+    interval: 300
+    url: https://www.github.com/favicon.ico
+    icon: https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/mini/Github.png
   - name: Docker
     type: url-test
     include-all: true
@@ -269,61 +314,7 @@ proxy-groups:
     include-all: true
     interval: 300
     filter: (?i)家宽
-rules:
-  - RULE-SET,private,DIRECT
-  - RULE-SET,AI,AI
-  - RULE-SET,premium_applications,DIRECT
-  - DOMAIN,clash.razord.top,DIRECT
-  - DOMAIN,yacd.haishan.me,DIRECT
-  - RULE-SET,premium_private,DIRECT
-  - RULE-SET,premium_reject,REJECT
-  - RULE-SET,adv_AD,REJECT
-  - RULE-SET,adv_EasyList,REJECT
-  - RULE-SET,adv_EasyListChina,REJECT
-  - RULE-SET,adv_EasyPrivacy,REJECT
-  - RULE-SET,adv_ProgramAD,REJECT
-  - RULE-SET,premium_icloud,DIRECT
-  - RULE-SET,premium_apple,DIRECT
-  - RULE-SET,premium_google,默认
-  - RULE-SET,premium_proxy,默认
-  - RULE-SET,premium_direct,DIRECT
-  - RULE-SET,premium_lancidr,DIRECT
-  - RULE-SET,premium_cncidr,DIRECT
-  - RULE-SET,premium_telegramcidr,默认
-  - GEOIP,LAN,DIRECT
-  - GEOIP,CN,DIRECT
-  - MATCH,默认
-dns:
-  enable: true
-  ipv6: false
-  enhanced-mode: fake-ip
-  fake-ip-range: 198.18.0.1/16
-  fake-ip-filter:
-    - "*.lan"
-    - localhost.ptlogin2.qq.com
-  nameserver:
-    - 223.5.5.5
-    - 119.29.29.29
-  fallback:
-    - tls://8.8.8.8:853
-    - tls://1.1.1.1:853
-sniffer:
-  enable: true
-  parse-pure-ip: true
-  sniff:
-    HTTP:
-      ports:
-        - 80
-        - 8080-8880
-      override-destination: true
-    TLS:
-      ports:
-        - 443
-        - 8443
-    QUIC:
-      ports:
-        - 443
-        - 8443
+
 rule-providers:
   premium_reject:
     type: http
@@ -411,7 +402,7 @@ rule-providers:
       id: cfd853ab-f938-499a-b344-7cafb9f0534b
       name: private
       behavior: classical
-      description: ""
+      description: ''
     url: https://scribe.shenb.one/ruleset/private.yaml
     interval: 86400
   AI:
@@ -449,3 +440,68 @@ rule-providers:
     url: https://raw.githubusercontent.com/earoftoast/clash-rules/main/ProgramAD.yaml
     path: ./rules/adv_ProgramAD.yaml
     interval: 86400
+
+rules:
+
+  #private
+  - GEOIP,LAN,DIRECT
+  - RULE-SET,private,DIRECT
+  - GEOIP,private,DIRECT
+  - GEOSITE,private,DIRECT
+  - RULE-SET,premium_applications,DIRECT
+  - DOMAIN,clash.razord.top,DIRECT
+  - DOMAIN,yacd.haishan.me,DIRECT
+  - RULE-SET,premium_private,DIRECT
+
+  #ads
+  - RULE-SET,premium_reject,REJECT
+  - RULE-SET,adv_AD,REJECT
+  - RULE-SET,adv_EasyList,REJECT
+  - RULE-SET,adv_EasyListChina,REJECT
+  - RULE-SET,adv_EasyPrivacy,REJECT
+  - RULE-SET,adv_ProgramAD,REJECT
+  - GEOSITE,category-ads-all,REJECT
+
+  #direct
+  - RULE-SET,premium_icloud,DIRECT
+  - RULE-SET,premium_apple,DIRECT
+  - RULE-SET,premium_direct,DIRECT
+  - RULE-SET,premium_lancidr,DIRECT
+  - RULE-SET,premium_cncidr,DIRECT
+  - GEOSITE,onedrive,DIRECT
+  - GEOSITE,microsoft@cn,DIRECT
+  - GEOSITE,apple-cn,DIRECT
+  - GEOSITE,steam@cn,DIRECT
+
+  #proxy
+  - RULE-SET,AI,AI
+  - RULE-SET,premium_telegramcidr,Telegram
+  - GEOSITE,twitter,Twitter
+  - GEOSITE,youtube,YouTube
+  - RULE-SET,premium_google,Google
+  - GEOSITE,google,Google
+  - GEOSITE,telegram,Telegram
+  - GEOSITE,netflix,NETFLIX
+  - GEOSITE,spotify,Spotify
+  - GEOSITE,github,Github
+  - GEOSITE,pixiv,默认
+  - GEOSITE,category-scholar-!cn,默认
+  - GEOSITE,biliintl,默认
+  - GEOSITE,bahamut,巴哈姆特
+  - GEOIP,google,Google
+  - GEOIP,netflix,NETFLIX
+  - GEOIP,telegram,Telegram
+  - GEOIP,twitter,Twitter
+  - GEOIP,JP,默认
+  - RULE-SET,premium_proxy,默认
+
+  #match
+  - GEOSITE,category-games@cn,DIRECT
+  - GEOSITE,geolocation-!cn,默认
+  - GEOIP,CN,DIRECT
+  - GEOSITE,CN,DIRECT
+  - DOMAIN-SUFFIX,cn,DIRECT
+  - DOMAIN-KEYWORD,-cn,DIRECT
+  - MATCH,默认
+
+  #backup

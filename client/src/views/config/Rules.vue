@@ -24,22 +24,21 @@
       <div v-else class="rules-container">
         <div class="drag-hint">
           <el-icon><Rank /></el-icon>
-          <span>拖拽规则可调整顺序</span>
+          <span>拖拽规则可调整顺序，拖拽到不同分组可移动规则</span>
         </div>
-        <draggable
-          v-model="draggableRules"
-          item-key="id"
-          handle=".drag-handle"
-          animation="200"
-          ghost-class="ghost"
-          @end="onDragEnd"
+        
+        <GroupedContainer
+          v-model="ruleGroups"
+          draggable-group="rules"
+          content-class="rules-list"
+          @change="onGroupsChange"
         >
-          <template #item="{ element, index }">
+          <template #item="{ element, groupIndex, itemIndex }">
             <div class="rule-item">
               <div class="drag-handle">
                 <el-icon><Rank /></el-icon>
               </div>
-              <div class="rule-index">{{ index + 1 }}</div>
+              <div class="rule-index">{{ getGlobalIndex(groupIndex, itemIndex) }}</div>
               <div class="rule-type">
                 <el-tag size="small">{{ getRuleType(element) }}</el-tag>
               </div>
@@ -48,12 +47,12 @@
                 <el-tag size="small" type="success">{{ getRuleTarget(element) }}</el-tag>
               </div>
               <div class="rule-actions">
-                <el-button link type="primary" @click="editRule(index)">编辑</el-button>
-                <el-button link type="danger" @click="removeRule(index)">删除</el-button>
+                <el-button link type="primary" @click="editRule(groupIndex, itemIndex)">编辑</el-button>
+                <el-button link type="danger" @click="removeRule(groupIndex, itemIndex)">删除</el-button>
               </div>
             </div>
           </template>
-        </draggable>
+        </GroupedContainer>
         
         <div class="footer-actions">
           <el-button type="primary" @click="saveRules" :loading="saving">
@@ -168,8 +167,8 @@ import { ref, computed, reactive, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Rank } from '@element-plus/icons-vue'
-import draggable from 'vuedraggable'
 import { useConfigStore } from '@/stores/config'
+import GroupedContainer from '@/components/GroupedContainer.vue'
 
 const route = useRoute()
 const store = useConfigStore()
@@ -177,6 +176,7 @@ const store = useConfigStore()
 const dialogVisible = ref(false)
 const batchDialogVisible = ref(false)
 const editingIndex = ref(null)
+const editingGroupIndex = ref(null)
 const saving = ref(false)
 const formRef = ref(null)
 const batchRules = ref('')
@@ -210,28 +210,107 @@ const rules = computed(() => {
   })
 })
 
-// 用于拖拽的响应式数组
-const draggableRules = ref([])
-
-// 监听 rules 变化，更新 draggableRules
-watch(rules, (newRules) => {
-  draggableRules.value = newRules.map((rule, index) => ({
-    ...rule,
-    id: rule.id || `rule-${index}-${Date.now()}`
-  }))
-}, { immediate: true, deep: true })
-
-// 拖拽结束处理
-async function onDragEnd() {
-  // 拖拽完成后保存新顺序
-  await saveRulesOrder()
+// 将原始规则字符串转换为对象格式
+function parseRuleItem(item, index, groupName) {
+  // 如果已经是对象格式，直接返回
+  if (item && typeof item === 'object' && !Array.isArray(item)) {
+    return {
+      ...item,
+      id: item.id || `rule-${groupName || 'default'}-${index}-${Date.now()}`
+    }
+  }
+  
+  // 如果是字符串，解析为对象
+  if (typeof item === 'string') {
+    const parts = item.split(',')
+    // MATCH 规则格式: MATCH,target (没有 value)
+    if (parts[0] === 'MATCH') {
+      return {
+        id: `rule-${groupName || 'default'}-${index}-${Date.now()}`,
+        type: 'MATCH',
+        value: '',
+        target: parts[1] || '',
+        noResolve: false,
+        raw: item
+      }
+    }
+    return {
+      id: `rule-${groupName || 'default'}-${index}-${Date.now()}`,
+      type: parts[0] || '',
+      value: parts[1] || '',
+      target: parts[2] || '',
+      noResolve: parts[3] === 'no-resolve',
+      raw: item
+    }
+  }
+  
+  // 其他情况，返回默认对象
+  return {
+    id: `rule-${groupName || 'default'}-${index}-${Date.now()}`,
+    type: '',
+    value: '',
+    target: '',
+    noResolve: false,
+    raw: ''
+  }
 }
 
-// 保存规则顺序
-async function saveRulesOrder() {
+// 本地分组数据（用于临时存储修改）
+const localGroups = ref([])
+
+// 获取分组信息
+const ruleGroups = computed({
+  get() {
+    const groups = store.getFieldGroups('rules')
+    if (groups && Array.isArray(groups) && groups.length > 0) {
+      // 检查是否有实际内容
+      const hasItems = groups.some(g => g.items && g.items.length > 0)
+      if (hasItems) {
+        // 确保每个 item 都被正确解析为对象格式
+        return groups.map(group => ({
+          ...group,
+          items: (group.items || []).map((item, index) =>
+            parseRuleItem(item, index, group.name)
+          )
+        }))
+      }
+    }
+    // 如果没有分组信息，将所有规则放入默认分组
+    return [{ name: null, collapsed: false, items: rules.value }]
+  },
+  set(value) {
+    // 更新本地分组数据
+    localGroups.value = value
+  }
+})
+
+// 计算全局索引
+function getGlobalIndex(groupIndex, itemIndex) {
+  let index = itemIndex + 1
+  for (let i = 0; i < groupIndex; i++) {
+    index += (ruleGroups.value[i]?.items?.length || 0)
+  }
+  return index
+}
+
+// 分组变更处理
+async function onGroupsChange(newGroups) {
+  // 如果传入了新数据，直接使用；否则使用本地缓存或 computed 值
+  const groupsToSave = newGroups || (localGroups.value.length > 0 ? localGroups.value : ruleGroups.value)
+  await saveGroups(groupsToSave)
+}
+
+// 保存分组
+async function saveGroups(groupsToSave) {
   try {
-    await store.updateRules(route.params.id, rulesToStrings(draggableRules.value))
-    ElMessage.success('规则顺序已更新')
+    // 如果没有传入数据，使用本地缓存或 computed 值
+    if (!groupsToSave) {
+      groupsToSave = localGroups.value.length > 0 ? localGroups.value : ruleGroups.value
+    }
+    await store.updateConfigGroups(route.params.id, 'rules', groupsToSave)
+    // 清空本地缓存
+    localGroups.value = []
+    ElMessage.success('规则分组已保存')
   } catch (e) {
     // 错误已处理
   }
@@ -301,27 +380,42 @@ function onRuleTypeChange() {
 
 function showAddDialog() {
   editingIndex.value = null
+  editingGroupIndex.value = null
   Object.assign(ruleForm, defaultRuleForm)
   dialogVisible.value = true
 }
 
-function editRule(index) {
-  editingIndex.value = index
-  const rule = draggableRules.value[index]
-  Object.assign(ruleForm, {
-    type: rule.type,
-    value: rule.value,
-    target: rule.target,
-    noResolve: rule.noResolve
-  })
+function editRule(groupIndex, itemIndex) {
+  editingGroupIndex.value = groupIndex
+  editingIndex.value = itemIndex
+  const rule = ruleGroups.value[groupIndex]?.items?.[itemIndex]
+  if (rule) {
+    Object.assign(ruleForm, {
+      type: rule.type,
+      value: rule.value,
+      target: rule.target,
+      noResolve: rule.noResolve
+    })
+  }
   dialogVisible.value = true
 }
 
-async function removeRule(index) {
+async function removeRule(groupIndex, itemIndex) {
   try {
     await ElMessageBox.confirm('确定要删除这条规则吗？', '删除确认', { type: 'warning' })
-    draggableRules.value.splice(index, 1)
-    await store.updateRules(route.params.id, rulesToStrings(draggableRules.value))
+    
+    // 创建新的分组数据
+    const newGroups = ruleGroups.value.map((group, gi) => {
+      if (gi === groupIndex) {
+        return {
+          ...group,
+          items: group.items.filter((_, i) => i !== itemIndex)
+        }
+      }
+      return group
+    })
+    
+    await store.updateConfigGroups(route.params.id, 'rules', newGroups)
     ElMessage.success('规则已删除')
   } catch (e) {
     // 取消或错误
@@ -340,11 +434,12 @@ async function submitBatch() {
   }
   
   const lines = batchRules.value.trim().split('\n').filter(line => line.trim())
+  const newRules = []
   
   lines.forEach(line => {
     const parts = line.trim().split(',')
     if (parts.length >= 2) {
-      draggableRules.value.push({
+      newRules.push({
         id: `rule-new-${Date.now()}-${Math.random()}`,
         type: parts[0],
         value: parts[1],
@@ -354,9 +449,20 @@ async function submitBatch() {
     }
   })
   
+  // 添加到最后一个分组
+  const newGroups = [...ruleGroups.value]
+  if (newGroups.length === 0) {
+    newGroups.push({ name: null, collapsed: false, items: newRules })
+  } else {
+    newGroups[newGroups.length - 1] = {
+      ...newGroups[newGroups.length - 1],
+      items: [...(newGroups[newGroups.length - 1].items || []), ...newRules]
+    }
+  }
+  
   try {
-    await store.updateRules(route.params.id, rulesToStrings(draggableRules.value))
-    ElMessage.success(`已添加 ${lines.length} 条规则`)
+    await store.updateConfigGroups(route.params.id, 'rules', newGroups)
+    ElMessage.success(`已添加 ${newRules.length} 条规则`)
     batchDialogVisible.value = false
   } catch (e) {
     // 错误已处理
@@ -378,15 +484,34 @@ async function submitForm() {
     noResolve: ruleForm.noResolve
   }
   
-  if (editingIndex.value !== null) {
-    draggableRules.value[editingIndex.value] = newRule
-  } else {
-    draggableRules.value.push(newRule)
+  const newGroups = ruleGroups.value.map((group, gi) => {
+    if (editingGroupIndex.value !== null && gi === editingGroupIndex.value) {
+      // 编辑模式
+      return {
+        ...group,
+        items: group.items.map((item, ii) => 
+          ii === editingIndex.value ? newRule : item
+        )
+      }
+    }
+    return group
+  })
+  
+  if (editingGroupIndex.value === null) {
+    // 添加模式 - 添加到最后一个分组
+    if (newGroups.length === 0) {
+      newGroups.push({ name: null, collapsed: false, items: [newRule] })
+    } else {
+      newGroups[newGroups.length - 1] = {
+        ...newGroups[newGroups.length - 1],
+        items: [...(newGroups[newGroups.length - 1].items || []), newRule]
+      }
+    }
   }
   
   try {
-    await store.updateRules(route.params.id, rulesToStrings(draggableRules.value))
-    ElMessage.success(editingIndex.value !== null ? '规则已更新' : '规则已添加')
+    await store.updateConfigGroups(route.params.id, 'rules', newGroups)
+    ElMessage.success(editingGroupIndex.value !== null ? '规则已更新' : '规则已添加')
     dialogVisible.value = false
   } catch (e) {
     // 错误已处理
@@ -396,26 +521,13 @@ async function submitForm() {
 async function saveRules() {
   saving.value = true
   try {
-    await store.updateRules(route.params.id, rulesToStrings(draggableRules.value))
+    await store.updateConfigGroups(route.params.id, 'rules', ruleGroups.value)
     ElMessage.success('规则已保存')
   } catch (e) {
     // 错误已处理
   } finally {
     saving.value = false
   }
-}
-
-function rulesToStrings(rulesList) {
-  return rulesList.map(rule => {
-    if (rule.type === 'MATCH') {
-      return `MATCH,${rule.target}`
-    }
-    const parts = [rule.type, rule.value, rule.target]
-    if (rule.noResolve) {
-      parts.push('no-resolve')
-    }
-    return parts.join(',')
-  })
 }
 </script>
 
@@ -455,9 +567,26 @@ function rulesToStrings(rulesList) {
     border-radius: 4px;
     margin-bottom: 8px;
     transition: all 0.2s;
+    user-select: none;
     
     &:hover {
       background: #f0f0f0;
+    }
+    
+    :deep(.drag-handle) {
+      cursor: grab;
+      color: #c0c4cc;
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      
+      &:hover {
+        color: #909399;
+      }
+      
+      &:active {
+        cursor: grabbing;
+      }
     }
     
     .drag-handle {

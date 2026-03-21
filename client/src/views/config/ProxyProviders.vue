@@ -17,88 +17,59 @@
         <el-button type="primary" @click="showAddDialog">添加第一个代理集合</el-button>
       </el-empty>
       
-      <div v-else class="provider-list">
-        <el-card 
-          v-for="provider in providerList" 
-          :key="provider.name"
-          class="provider-card"
-          shadow="hover"
+      <div v-else class="providers-container">
+        <div class="drag-hint">
+          <el-icon><Rank /></el-icon>
+          <span>拖拽代理集合可调整顺序，拖拽到不同分组可移动代理集合</span>
+        </div>
+        
+        <GroupedContainer
+          v-model="proxyProviderGroups"
+          draggable-group="proxy-providers"
+          content-class="providers-list"
+          @change="onGroupsChange"
         >
-          <div class="provider-header">
-            <div class="provider-title">
-              <span class="name">{{ provider.name }}</span>
-              <el-tag size="small" :type="provider.type === 'http' ? 'primary' : 'success'">
-                {{ provider.type.toUpperCase() }}
-              </el-tag>
-            </div>
-            <div class="provider-actions">
-              <el-button link type="primary" @click="editProvider(provider)">编辑</el-button>
-              <el-button link type="danger" @click="removeProvider(provider)">删除</el-button>
-            </div>
-          </div>
-          
-          <div class="provider-info">
-            <template v-if="provider.type === 'http'">
-              <div class="info-item">
-                <span class="label">订阅地址:</span>
-                <span class="value url">{{ provider.url }}</span>
+          <template #item="{ element, groupIndex, itemIndex }">
+            <div class="provider-item">
+              <div class="drag-handle">
+                <el-icon><Rank /></el-icon>
               </div>
-              <div class="info-item" v-if="provider.interval">
-                <span class="label">更新间隔:</span>
-                <span class="value">{{ provider.interval }} 秒</span>
-              </div>
-            </template>
-            
-            <template v-if="provider.type === 'file'">
-              <div class="info-item">
-                <span class="label">文件路径:</span>
-                <span class="value">{{ provider.path }}</span>
-              </div>
-            </template>
-            
-            <div class="info-item" v-if="provider.path">
-              <span class="label">存储路径:</span>
-              <span class="value">{{ provider.path }}</span>
-            </div>
-            
-            <div class="info-item health-check" v-if="provider['health-check']?.enable">
-              <el-tag type="success" size="small">健康检查已启用</el-tag>
-              <span class="health-interval">间隔: {{ provider['health-check'].interval || 300 }} 秒</span>
-            </div>
-            <div class="info-item" v-else>
-              <el-tag type="info" size="small">健康检查未启用</el-tag>
-            </div>
-            
-            <!-- Override 配置显示 -->
-            <template v-if="provider.override">
-              <div class="info-item override-info">
-                <el-tag type="warning" size="small">节点名称覆盖已启用</el-tag>
-              </div>
-              <div class="info-item" v-if="provider.override['additional-prefix']">
-                <span class="label">名称前缀:</span>
-                <span class="value">{{ provider.override['additional-prefix'] }}</span>
-              </div>
-              <div class="info-item" v-if="provider.override['additional-suffix']">
-                <span class="label">名称后缀:</span>
-                <span class="value">{{ provider.override['additional-suffix'] }}</span>
-              </div>
-              <template v-if="provider.override['proxy-name']?.length">
-                <div class="info-item">
-                  <span class="label">替换规则:</span>
-                  <div class="replace-list">
-                    <span 
-                      v-for="(rule, idx) in provider.override['proxy-name']" 
-                      :key="idx" 
-                      class="replace-tag"
-                    >
-                      {{ rule }}
-                    </span>
-                  </div>
+              <div class="provider-index">{{ getGlobalIndex(groupIndex, itemIndex) }}</div>
+              <div class="provider-main">
+                <div class="provider-header">
+                  <span class="name">{{ element.name }}</span>
+                  <el-tag size="small" :type="element.type === 'http' ? 'primary' : 'success'">
+                    {{ element.type?.toUpperCase() || 'HTTP' }}
+                  </el-tag>
                 </div>
-              </template>
-            </template>
-          </div>
-        </el-card>
+                <div class="provider-info">
+                  <template v-if="element.type === 'http'">
+                    <span class="info-text url">{{ element.url }}</span>
+                    <span class="info-text" v-if="element.interval">
+                      更新间隔: {{ element.interval }} 秒
+                    </span>
+                  </template>
+                  
+                  <template v-if="element.type === 'file'">
+                    <span class="info-text">{{ element.path }}</span>
+                  </template>
+                  
+                  <template v-if="element['health-check']?.enable">
+                    <el-tag type="success" size="small">健康检查</el-tag>
+                  </template>
+                  
+                  <template v-if="element.override">
+                    <el-tag type="warning" size="small">名称覆盖</el-tag>
+                  </template>
+                </div>
+              </div>
+              <div class="provider-actions">
+                <el-button link type="primary" @click="editProvider(element)">编辑</el-button>
+                <el-button link type="danger" @click="removeProvider(element)">删除</el-button>
+              </div>
+            </div>
+          </template>
+        </GroupedContainer>
       </div>
     </el-card>
     
@@ -146,7 +117,7 @@
         <!-- 存储路径 (可选) -->
         <el-form-item label="存储路径">
           <el-input
-            v-model="providerForm.path"
+            v-model="providerForm.storagePath"
             :placeholder="providerForm.type === 'file' ? '同文件路径' : './profiles/proxy/provider.yaml'"
           />
           <div class="form-tip">代理集合文件的本地存储路径 (可选)</div>
@@ -242,11 +213,12 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete } from '@element-plus/icons-vue'
+import { Rank, Delete } from '@element-plus/icons-vue'
 import { useConfigStore } from '@/stores/config'
+import GroupedContainer from '@/components/GroupedContainer.vue'
 
 const route = useRoute()
 const store = useConfigStore()
@@ -265,12 +237,75 @@ const providerList = computed(() => {
   }))
 })
 
+// 获取分组信息
+const proxyProviderGroups = computed({
+  get() {
+    const groupsData = store.getFieldGroups('proxy-providers')
+    if (groupsData && Array.isArray(groupsData)) {
+      // 确保每个 item 都有 id
+      return groupsData.map(group => ({
+        ...group,
+        items: (group.items || []).map((item, index) => ({
+          ...item,
+          id: item.id || item.name || `provider-${group.name || 'default'}-${index}`
+        }))
+      }))
+    }
+    // 如果没有分组信息，将所有代理集合放入默认分组
+    const items = providerList.value.map((provider, index) => ({
+      ...provider,
+      id: provider.name || `provider-${index}`
+    }))
+    return [{ name: null, collapsed: false, items }]
+  },
+  set(value) {
+    // 更新本地分组数据
+    localGroups.value = value
+  }
+})
+
+// 本地分组数据（用于临时存储修改）
+const localGroups = ref([])
+
+// 计算全局索引
+function getGlobalIndex(groupIndex, itemIndex) {
+  let index = itemIndex + 1
+  for (let i = 0; i < groupIndex; i++) {
+    index += (proxyProviderGroups.value[i]?.items?.length || 0)
+  }
+  return index
+}
+
+// 分组变更处理
+async function onGroupsChange(newGroups) {
+  // 如果传入了新数据，直接使用；否则使用本地缓存或 computed 值
+  const groupsToSave = newGroups || (localGroups.value.length > 0 ? localGroups.value : proxyProviderGroups.value)
+  await saveGroups(groupsToSave)
+}
+
+// 保存分组
+async function saveGroups(groupsToSave) {
+  try {
+    // 如果没有传入数据，使用本地缓存或 computed 值
+    if (!groupsToSave) {
+      groupsToSave = localGroups.value.length > 0 ? localGroups.value : proxyProviderGroups.value
+    }
+    await store.updateConfigGroups(route.params.id, 'proxy-providers', groupsToSave)
+    // 清空本地缓存
+    localGroups.value = []
+    ElMessage.success('代理集合分组已保存')
+  } catch (e) {
+    // 错误已处理
+  }
+}
+
 const defaultProviderForm = {
   name: '',
   type: 'http',
   url: '',
   interval: 3600,
   path: '',
+  storagePath: '',
   healthCheckEnable: false,
   healthCheckUrl: 'http://www.gstatic.com/generate_204',
   healthCheckInterval: 300,
@@ -319,6 +354,7 @@ function editProvider(provider) {
     url: provider.url || '',
     interval: provider.interval || 3600,
     path: provider.path || '',
+    storagePath: provider.path || '',
     healthCheckEnable: provider['health-check']?.enable || false,
     healthCheckUrl: provider['health-check']?.url || 'http://www.gstatic.com/generate_204',
     healthCheckInterval: provider['health-check']?.interval || 300,
@@ -337,7 +373,14 @@ async function removeProvider(provider) {
       '删除确认',
       { type: 'warning' }
     )
-    await store.deleteProxyProvider(route.params.id, provider.name)
+    
+    // 从分组中删除
+    const newGroups = proxyProviderGroups.value.map(g => ({
+      ...g,
+      items: (g.items || []).filter(item => item.name !== provider.name)
+    }))
+    
+    await store.updateConfigGroups(route.params.id, 'proxy-providers', newGroups)
     ElMessage.success('代理集合已删除')
   } catch (e) {
     // 取消或错误
@@ -383,8 +426,8 @@ async function submitForm() {
     }
     
     // 存储路径
-    if (providerForm.path && providerForm.type === 'http') {
-      data.path = providerForm.path
+    if (providerForm.storagePath && providerForm.type === 'http') {
+      data.path = providerForm.storagePath
     }
     
     // 健康检查配置
@@ -421,10 +464,28 @@ async function submitForm() {
     }
     
     if (editingProvider.value) {
-      await store.updateProxyProvider(route.params.id, editingProvider.value.name, data)
+      // 编辑模式：更新分组中的代理集合
+      const newGroups = proxyProviderGroups.value.map(g => ({
+        ...g,
+        items: (g.items || []).map(item => 
+          item.name === editingProvider.value.name ? { ...item, ...data } : item
+        )
+      }))
+      await store.updateConfigGroups(route.params.id, 'proxy-providers', newGroups)
       ElMessage.success('代理集合已更新')
     } else {
-      await store.addProxyProvider(route.params.id, data)
+      // 添加模式：添加到最后一个分组
+      const newGroups = [...proxyProviderGroups.value]
+      const newProvider = { ...data, id: data.name }
+      if (newGroups.length === 0) {
+        newGroups.push({ name: null, collapsed: false, items: [newProvider] })
+      } else {
+        newGroups[newGroups.length - 1] = {
+          ...newGroups[newGroups.length - 1],
+          items: [...(newGroups[newGroups.length - 1].items || []), newProvider]
+        }
+      }
+      await store.updateConfigGroups(route.params.id, 'proxy-providers', newGroups)
       ElMessage.success('代理集合已添加')
     }
     
@@ -455,77 +516,94 @@ function removeReplaceRule(index) {
     align-items: center;
   }
   
-  .provider-list {
-    display: grid;
-    gap: 16px;
+  .providers-container {
+    .drag-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #909399;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
   }
   
-  .provider-card {
-    .provider-header {
+  .provider-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: #fafafa;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    
+    &:hover {
+      background: #f0f0f0;
+    }
+    
+    .drag-handle {
+      cursor: grab;
+      color: #c0c4cc;
+      margin-right: 12px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
       
-      .provider-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        
-        .name {
-          font-size: 16px;
-          font-weight: 600;
-        }
+      &:hover {
+        color: #909399;
+      }
+      
+      &:active {
+        cursor: grabbing;
       }
     }
     
-    .provider-info {
-      .info-item {
+    .provider-index {
+      width: 32px;
+      color: #909399;
+      font-size: 12px;
+      text-align: center;
+    }
+    
+    .provider-main {
+      flex: 1;
+      min-width: 0;
+      
+      .provider-header {
         display: flex;
         align-items: center;
-        margin-bottom: 8px;
+        gap: 8px;
+        margin-bottom: 6px;
         
-        .label {
-          color: #909399;
-          margin-right: 8px;
-          min-width: 70px;
+        .name {
+          font-size: 15px;
+          font-weight: 600;
         }
+      }
+      
+      .provider-info {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
         
-        .value {
-          color: #303133;
+        .info-text {
+          font-size: 13px;
+          color: #606266;
           
           &.url {
-            max-width: 400px;
+            color: #409eff;
+            max-width: 300px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
           }
         }
-        
-        &.health-check, &.override-info {
-          margin-top: 8px;
-          
-          .health-interval {
-            margin-left: 8px;
-            color: #909399;
-            font-size: 12px;
-          }
-        }
-        
-        .replace-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-          
-          .replace-tag {
-            background: #f0f0f0;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #606266;
-          }
-        }
       }
+    }
+    
+    .provider-actions {
+      width: 100px;
+      text-align: right;
+      flex-shrink: 0;
     }
   }
   
@@ -569,5 +647,12 @@ function removeReplaceRule(index) {
       border-radius: 4px;
     }
   }
+}
+
+// 拖拽样式
+.ghost {
+  opacity: 0.5;
+  background: #f0f0f0;
+  border: 1px dashed #dcdfe6;
 }
 </style>

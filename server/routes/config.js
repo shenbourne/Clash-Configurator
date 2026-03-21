@@ -1332,4 +1332,80 @@ router.post('/export-all', async (req, res) => {
   }
 });
 
+// ==================== 分组管理 ====================
+
+/**
+ * GET /api/configs/:id/grouping
+ * 获取配置的所有分组信息
+ */
+router.get('/configs/:id/grouping', async (req, res) => {
+  try {
+    const groups = await configService.getConfigGroups(req.params.id);
+    res.json({
+      success: true,
+      data: groups
+    });
+  } catch (error) {
+    res.status(404).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/configs/:id/grouping/:field
+ * 获取配置指定字段的分组信息
+ */
+router.get('/configs/:id/grouping/:field', async (req, res) => {
+  try {
+    const groups = await configService.getConfigGroups(req.params.id, req.params.field);
+    res.json({
+      success: true,
+      data: groups
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/configs/:id/grouping/:field
+ * 更新配置指定字段的分组信息
+ */
+router.put('/configs/:id/grouping/:field', async (req, res) => {
+  try {
+    const { groups } = req.body;
+    if (!groups || !Array.isArray(groups)) {
+      return res.status(400).json({
+        success: false,
+        message: '请提供有效的分组数据'
+      });
+    }
+    
+    const config = await configService.updateConfigGroups(req.params.id, req.params.field, groups);
+    
+    // 自动导出到指定目录
+    const settings = await settingsService.getSettings();
+    if (settings.autoExport && settings.exportDirectory) {
+      const yaml = await configService.exportConfig(req.params.id);
+      await settingsService.exportConfigToDirectory(config, yaml);
+    }
+    
+    res.json({
+      success: true,
+      data: config._groups,
+      message: '分组更新成功'
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

@@ -17,22 +17,37 @@
         <el-button type="primary" @click="showAddDialog">添加第一个节点</el-button>
       </el-empty>
       
-      <el-table v-else :data="proxies" stripe style="width: 100%">
-        <el-table-column prop="name" label="名称" min-width="150" />
-        <el-table-column prop="type" label="类型" width="100">
-          <template #default="{ row }">
-            <el-tag size="small">{{ row.type.toUpperCase() }}</el-tag>
+      <div v-else class="nodes-container">
+        <div class="drag-hint">
+          <el-icon><Rank /></el-icon>
+          <span>拖拽节点可调整顺序，拖拽到不同分组可移动节点</span>
+        </div>
+        
+        <GroupedContainer
+          v-model="proxyNodeGroups"
+          draggable-group="proxies"
+          content-class="nodes-list"
+          @change="onGroupsChange"
+        >
+          <template #item="{ element, groupIndex, itemIndex }">
+            <div class="node-item">
+              <div class="drag-handle">
+                <el-icon><Rank /></el-icon>
+              </div>
+              <div class="node-index">{{ getGlobalIndex(groupIndex, itemIndex) }}</div>
+              <div class="node-name">{{ element.name }}</div>
+              <div class="node-type">
+                <el-tag size="small">{{ element.type?.toUpperCase() }}</el-tag>
+              </div>
+              <div class="node-server">{{ element.server }}:{{ element.port }}</div>
+              <div class="node-actions">
+                <el-button link type="primary" @click="editProxy(element)">编辑</el-button>
+                <el-button link type="danger" @click="removeProxy(element)">删除</el-button>
+              </div>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="server" label="服务器" min-width="150" />
-        <el-table-column prop="port" label="端口" width="80" />
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="editProxy(row)">编辑</el-button>
-            <el-button link type="danger" @click="removeProxy(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        </GroupedContainer>
+      </div>
     </el-card>
     
     <!-- 添加/编辑节点对话框 -->
@@ -237,10 +252,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive, watch } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Rank } from '@element-plus/icons-vue'
 import { useConfigStore } from '@/stores/config'
+import GroupedContainer from '@/components/GroupedContainer.vue'
 
 const route = useRoute()
 const store = useConfigStore()
@@ -252,6 +269,68 @@ const formRef = ref(null)
 const wsHeadersStr = ref('')
 
 const proxies = computed(() => store.currentConfig?.proxies || [])
+
+// 获取分组信息
+const proxyNodeGroups = computed({
+  get() {
+    const groupsData = store.getFieldGroups('proxies')
+    if (groupsData && Array.isArray(groupsData)) {
+      // 确保每个 item 都有 id
+      return groupsData.map(group => ({
+        ...group,
+        items: (group.items || []).map((item, index) => ({
+          ...item,
+          id: item.id || item.name || `proxy-${group.name || 'default'}-${index}`
+        }))
+      }))
+    }
+    // 如果没有分组信息，将所有代理节点放入默认分组
+    const items = proxies.value.map((proxy, index) => ({
+      ...proxy,
+      id: proxy.name || `proxy-${index}`
+    }))
+    return [{ name: null, collapsed: false, items }]
+  },
+  set(value) {
+    // 更新本地分组数据
+    localGroups.value = value
+  }
+})
+
+// 本地分组数据（用于临时存储修改）
+const localGroups = ref([])
+
+// 计算全局索引
+function getGlobalIndex(groupIndex, itemIndex) {
+  let index = itemIndex + 1
+  for (let i = 0; i < groupIndex; i++) {
+    index += (proxyNodeGroups.value[i]?.items?.length || 0)
+  }
+  return index
+}
+
+// 分组变更处理
+async function onGroupsChange(newGroups) {
+  // 如果传入了新数据，直接使用；否则使用本地缓存或 computed 值
+  const groupsToSave = newGroups || (localGroups.value.length > 0 ? localGroups.value : proxyNodeGroups.value)
+  await saveGroups(groupsToSave)
+}
+
+// 保存分组
+async function saveGroups(groupsToSave) {
+  try {
+    // 如果没有传入数据，使用本地缓存或 computed 值
+    if (!groupsToSave) {
+      groupsToSave = localGroups.value.length > 0 ? localGroups.value : proxyNodeGroups.value
+    }
+    await store.updateConfigGroups(route.params.id, 'proxies', groupsToSave)
+    // 清空本地缓存
+    localGroups.value = []
+    ElMessage.success('代理节点分组已保存')
+  } catch (e) {
+    // 错误已处理
+  }
+}
 
 const defaultProxyForm = {
   name: '',
@@ -315,7 +394,14 @@ async function removeProxy(proxy) {
       '删除确认',
       { type: 'warning' }
     )
-    await store.deleteProxy(route.params.id, proxy.name)
+    
+    // 从分组中删除
+    const newGroups = proxyNodeGroups.value.map(g => ({
+      ...g,
+      items: (g.items || []).filter(item => item.name !== proxy.name)
+    }))
+    
+    await store.updateConfigGroups(route.params.id, 'proxies', newGroups)
     ElMessage.success('节点已删除')
   } catch (e) {
     // 取消或错误
@@ -360,10 +446,28 @@ async function submitForm() {
     })
     
     if (editingProxy.value) {
-      await store.updateProxy(route.params.id, editingProxy.value.name, data)
+      // 编辑模式：更新分组中的节点
+      const newGroups = proxyNodeGroups.value.map(g => ({
+        ...g,
+        items: (g.items || []).map(item => 
+          item.name === editingProxy.value.name ? { ...item, ...data } : item
+        )
+      }))
+      await store.updateConfigGroups(route.params.id, 'proxies', newGroups)
       ElMessage.success('节点已更新')
     } else {
-      await store.addProxy(route.params.id, data)
+      // 添加模式：添加到最后一个分组
+      const newGroups = [...proxyNodeGroups.value]
+      const newProxy = { ...data, id: data.name }
+      if (newGroups.length === 0) {
+        newGroups.push({ name: null, collapsed: false, items: [newProxy] })
+      } else {
+        newGroups[newGroups.length - 1] = {
+          ...newGroups[newGroups.length - 1],
+          items: [...(newGroups[newGroups.length - 1].items || []), newProxy]
+        }
+      }
+      await store.updateConfigGroups(route.params.id, 'proxies', newGroups)
       ElMessage.success('节点已添加')
     }
     
@@ -387,5 +491,82 @@ async function submitForm() {
   .el-select {
     width: 100%;
   }
+  
+  .nodes-container {
+    .drag-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #909399;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+  }
+  
+  .node-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background: #fafafa;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+    
+    &:hover {
+      background: #f0f0f0;
+    }
+    
+    .drag-handle {
+      cursor: grab;
+      color: #c0c4cc;
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      
+      &:hover {
+        color: #909399;
+      }
+      
+      &:active {
+        cursor: grabbing;
+      }
+    }
+    
+    .node-index {
+      width: 40px;
+      color: #909399;
+      font-size: 12px;
+    }
+    
+    .node-name {
+      min-width: 150px;
+      font-weight: 500;
+      margin-right: 12px;
+    }
+    
+    .node-type {
+      width: 80px;
+      flex-shrink: 0;
+    }
+    
+    .node-server {
+      flex: 1;
+      color: #606266;
+      font-size: 13px;
+    }
+    
+    .node-actions {
+      width: 100px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+  }
+}
+
+// 拖拽样式
+.ghost {
+  opacity: 0.5;
+  background: #f0f0f0;
+  border: 1px dashed #dcdfe6;
 }
 </style>

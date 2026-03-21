@@ -20,22 +20,21 @@
       <div v-else class="groups-container">
         <div class="drag-hint">
           <el-icon><Rank /></el-icon>
-          <span>拖拽代理组可调整顺序</span>
+          <span>拖拽代理组可调整顺序，拖拽到不同分组可移动代理组</span>
         </div>
-        <draggable
-          v-model="draggableGroups"
-          item-key="name"
-          handle=".drag-handle"
-          animation="200"
-          ghost-class="ghost"
-          @end="onDragEnd"
+        
+        <GroupedContainer
+          v-model="proxyGroupGroups"
+          draggable-group="proxy-groups"
+          content-class="groups-list"
+          @change="onGroupsChange"
         >
-          <template #item="{ element, index }">
+          <template #item="{ element, groupIndex, itemIndex }">
             <div class="group-item">
               <div class="drag-handle">
                 <el-icon><Rank /></el-icon>
               </div>
-              <div class="group-index">{{ index + 1 }}</div>
+              <div class="group-index">{{ getGlobalIndex(groupIndex, itemIndex) }}</div>
               <div class="group-name">{{ element.name }}</div>
               <div class="group-type">
                 <el-tag size="small" :type="getGroupTypeTag(element.type)">{{ element.type }}</el-tag>
@@ -71,7 +70,7 @@
               </div>
             </div>
           </template>
-        </draggable>
+        </GroupedContainer>
       </div>
     </el-card>
     
@@ -200,12 +199,12 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Rank } from '@element-plus/icons-vue'
-import draggable from 'vuedraggable'
 import { useConfigStore } from '@/stores/config'
+import GroupedContainer from '@/components/GroupedContainer.vue'
 
 const route = useRoute()
 const store = useConfigStore()
@@ -217,29 +216,63 @@ const formRef = ref(null)
 
 const groups = computed(() => store.currentConfig?.['proxy-groups'] || [])
 
-// 用于拖拽的响应式数组
-const draggableGroups = ref([])
+// 获取分组信息
+const proxyGroupGroups = computed({
+  get() {
+    const groupsData = store.getFieldGroups('proxy-groups')
+    if (groupsData && Array.isArray(groupsData)) {
+      // 确保每个 item 都有 id
+      return groupsData.map(group => ({
+        ...group,
+        items: (group.items || []).map((item, index) => ({
+          ...item,
+          id: item.id || item.name || `group-${group.name || 'default'}-${index}`
+        }))
+      }))
+    }
+    // 如果没有分组信息，将所有代理组放入默认分组
+    const items = groups.value.map((group, index) => ({
+      ...group,
+      id: group.name || `group-${index}`
+    }))
+    return [{ name: null, collapsed: false, items }]
+  },
+  set(value) {
+    // 更新本地分组数据
+    localGroups.value = value
+  }
+})
 
-// 监听 groups 变化，更新 draggableGroups
-watch(groups, (newGroups) => {
-  draggableGroups.value = newGroups.map((group, index) => ({
-    ...group,
-    id: `group-${index}-${group.name}`
-  }))
-}, { immediate: true, deep: true })
+// 本地分组数据（用于临时存储修改）
+const localGroups = ref([])
 
-// 拖拽结束处理
-async function onDragEnd() {
-  await saveGroupsOrder()
+// 计算全局索引
+function getGlobalIndex(groupIndex, itemIndex) {
+  let index = itemIndex + 1
+  for (let i = 0; i < groupIndex; i++) {
+    index += (proxyGroupGroups.value[i]?.items?.length || 0)
+  }
+  return index
 }
 
-// 保存代理组顺序
-async function saveGroupsOrder() {
+// 分组变更处理
+async function onGroupsChange(newGroups) {
+  // 如果传入了新数据，直接使用；否则使用本地缓存或 computed 值
+  const groupsToSave = newGroups || (localGroups.value.length > 0 ? localGroups.value : proxyGroupGroups.value)
+  await saveGroups(groupsToSave)
+}
+
+// 保存分组
+async function saveGroups(groupsToSave) {
   try {
-    // 提取排序后的代理组数据（去除临时 id）
-    const orderedGroups = draggableGroups.value.map(({ id, ...rest }) => rest)
-    await store.updateProxyGroupsOrder(route.params.id, orderedGroups)
-    ElMessage.success('代理组顺序已更新')
+    // 如果没有传入数据，使用本地缓存或 computed 值
+    if (!groupsToSave) {
+      groupsToSave = localGroups.value.length > 0 ? localGroups.value : proxyGroupGroups.value
+    }
+    await store.updateConfigGroups(route.params.id, 'proxy-groups', groupsToSave)
+    // 清空本地缓存
+    localGroups.value = []
+    ElMessage.success('代理组分组已保存')
   } catch (e) {
     // 错误已处理
   }
@@ -332,7 +365,14 @@ async function removeGroup(group) {
       '删除确认',
       { type: 'warning' }
     )
-    await store.deleteProxyGroup(route.params.id, group.name)
+    
+    // 从分组中删除
+    const newGroups = proxyGroupGroups.value.map(g => ({
+      ...g,
+      items: (g.items || []).filter(item => item.name !== group.name)
+    }))
+    
+    await store.updateConfigGroups(route.params.id, 'proxy-groups', newGroups)
     ElMessage.success('代理组已删除')
   } catch (e) {
     // 取消或错误
@@ -392,10 +432,28 @@ async function submitForm() {
     })
     
     if (editingGroup.value) {
-      await store.updateProxyGroup(route.params.id, editingGroup.value.name, data)
+      // 编辑模式：更新分组中的代理组
+      const newGroups = proxyGroupGroups.value.map(g => ({
+        ...g,
+        items: (g.items || []).map(item => 
+          item.name === editingGroup.value.name ? { ...item, ...data } : item
+        )
+      }))
+      await store.updateConfigGroups(route.params.id, 'proxy-groups', newGroups)
       ElMessage.success('代理组已更新')
     } else {
-      await store.addProxyGroup(route.params.id, data)
+      // 添加模式：添加到最后一个分组
+      const newGroups = [...proxyGroupGroups.value]
+      const newGroup = { ...data, id: data.name }
+      if (newGroups.length === 0) {
+        newGroups.push({ name: null, collapsed: false, items: [newGroup] })
+      } else {
+        newGroups[newGroups.length - 1] = {
+          ...newGroups[newGroups.length - 1],
+          items: [...(newGroups[newGroups.length - 1].items || []), newGroup]
+        }
+      }
+      await store.updateConfigGroups(route.params.id, 'proxy-groups', newGroups)
       ElMessage.success('代理组已添加')
     }
     

@@ -1,4 +1,4 @@
- <template>
+<template>
   <div class="rule-providers">
     <el-card>
       <template #header>
@@ -20,22 +20,21 @@
       <div v-else class="providers-container">
         <div class="drag-hint">
           <el-icon><Rank /></el-icon>
-          <span>拖拽规则集合可调整顺序</span>
+          <span>拖拽规则集合可调整顺序，拖拽到不同分组可移动规则集合</span>
         </div>
-        <draggable
-          v-model="draggableProviders"
-          item-key="name"
-          handle=".drag-handle"
-          animation="200"
-          ghost-class="ghost"
-          @end="onDragEnd"
+        
+        <GroupedContainer
+          v-model="ruleProviderGroups"
+          draggable-group="rule-providers"
+          content-class="providers-list"
+          @change="onGroupsChange"
         >
-          <template #item="{ element, index }">
+          <template #item="{ element, groupIndex, itemIndex }">
             <div class="provider-item">
               <div class="drag-handle">
                 <el-icon><Rank /></el-icon>
               </div>
-              <div class="provider-index">{{ index + 1 }}</div>
+              <div class="provider-index">{{ getGlobalIndex(groupIndex, itemIndex) }}</div>
               <div class="provider-main">
                 <div class="provider-header">
                   <span class="name">{{ element.name }}</span>
@@ -77,7 +76,7 @@
               </div>
             </div>
           </template>
-        </draggable>
+        </GroupedContainer>
       </div>
     </el-card>
     
@@ -201,13 +200,13 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, watch } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Rank } from '@element-plus/icons-vue'
-import draggable from 'vuedraggable'
 import { useConfigStore } from '@/stores/config'
 import { useRuleSetStore } from '@/stores/ruleSet'
+import GroupedContainer from '@/components/GroupedContainer.vue'
 
 const route = useRoute()
 const store = useConfigStore()
@@ -236,32 +235,63 @@ const providerList = computed(() => {
   }))
 })
 
-// 用于拖拽的响应式数组
-const draggableProviders = ref([])
+// 获取分组信息
+const ruleProviderGroups = computed({
+  get() {
+    const groupsData = store.getFieldGroups('rule-providers')
+    if (groupsData && Array.isArray(groupsData)) {
+      // 确保每个 item 都有 id
+      return groupsData.map(group => ({
+        ...group,
+        items: (group.items || []).map((item, index) => ({
+          ...item,
+          id: item.id || item.name || `provider-${group.name || 'default'}-${index}`
+        }))
+      }))
+    }
+    // 如果没有分组信息，将所有规则集合放入默认分组
+    const items = providerList.value.map((provider, index) => ({
+      ...provider,
+      id: provider.name || `provider-${index}`
+    }))
+    return [{ name: null, collapsed: false, items }]
+  },
+  set(value) {
+    // 更新本地分组数据
+    localGroups.value = value
+  }
+})
 
-// 监听 providerList 变化，更新 draggableProviders
-watch(providerList, (newList) => {
-  draggableProviders.value = newList.map((provider, index) => ({
-    ...provider,
-    id: `provider-${index}-${provider.name}`
-  }))
-}, { immediate: true, deep: true })
+// 本地分组数据（用于临时存储修改）
+const localGroups = ref([])
 
-// 拖拽结束处理
-async function onDragEnd() {
-  await saveProvidersOrder()
+// 计算全局索引
+function getGlobalIndex(groupIndex, itemIndex) {
+  let index = itemIndex + 1
+  for (let i = 0; i < groupIndex; i++) {
+    index += (ruleProviderGroups.value[i]?.items?.length || 0)
+  }
+  return index
 }
 
-// 保存规则集合顺序
-async function saveProvidersOrder() {
+// 分组变更处理
+async function onGroupsChange(newGroups) {
+  // 如果传入了新数据，直接使用；否则使用本地缓存或 computed 值
+  const groupsToSave = newGroups || (localGroups.value.length > 0 ? localGroups.value : ruleProviderGroups.value)
+  await saveGroups(groupsToSave)
+}
+
+// 保存分组
+async function saveGroups(groupsToSave) {
   try {
-    // 构建有序的 rule-providers 对象
-    const orderedProviders = {}
-    draggableProviders.value.forEach(({ id, name, ...rest }) => {
-      orderedProviders[name] = rest
-    })
-    await store.updateRuleProvidersOrder(route.params.id, orderedProviders)
-    ElMessage.success('规则集合顺序已更新')
+    // 如果没有传入数据，使用本地缓存或 computed 值
+    if (!groupsToSave) {
+      groupsToSave = localGroups.value.length > 0 ? localGroups.value : ruleProviderGroups.value
+    }
+    await store.updateConfigGroups(route.params.id, 'rule-providers', groupsToSave)
+    // 清空本地缓存
+    localGroups.value = []
+    ElMessage.success('规则集合分组已保存')
   } catch (e) {
     // 错误已处理
   }
@@ -358,7 +388,14 @@ async function removeProvider(provider) {
       '删除确认',
       { type: 'warning' }
     )
-    await store.deleteRuleProvider(route.params.id, provider.name)
+    
+    // 从分组中删除
+    const newGroups = ruleProviderGroups.value.map(g => ({
+      ...g,
+      items: (g.items || []).filter(item => item.name !== provider.name)
+    }))
+    
+    await store.updateConfigGroups(route.params.id, 'rule-providers', newGroups)
     ElMessage.success('规则集合已删除')
   } catch (e) {
     // 取消或错误
@@ -432,10 +469,28 @@ async function submitForm() {
     }
     
     if (editingProvider.value) {
-      await store.updateRuleProvider(route.params.id, editingProvider.value.name, data)
+      // 编辑模式：更新分组中的规则集合
+      const newGroups = ruleProviderGroups.value.map(g => ({
+        ...g,
+        items: (g.items || []).map(item => 
+          item.name === editingProvider.value.name ? { ...item, ...data } : item
+        )
+      }))
+      await store.updateConfigGroups(route.params.id, 'rule-providers', newGroups)
       ElMessage.success('规则集合已更新')
     } else {
-      await store.addRuleProvider(route.params.id, data)
+      // 添加模式：添加到最后一个分组
+      const newGroups = [...ruleProviderGroups.value]
+      const newProvider = { ...data, id: data.name }
+      if (newGroups.length === 0) {
+        newGroups.push({ name: null, collapsed: false, items: [newProvider] })
+      } else {
+        newGroups[newGroups.length - 1] = {
+          ...newGroups[newGroups.length - 1],
+          items: [...(newGroups[newGroups.length - 1].items || []), newProvider]
+        }
+      }
+      await store.updateConfigGroups(route.params.id, 'rule-providers', newGroups)
       ElMessage.success('规则集合已添加')
     }
     

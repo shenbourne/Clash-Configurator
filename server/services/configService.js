@@ -1,7 +1,21 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { toYaml, fromYaml, validateClashConfig, generateDefaultConfig } = require('../utils/yaml');
+const {
+  toYaml,
+  fromYaml,
+  validateClashConfig,
+  generateDefaultConfig,
+  parseArrayWithGroups,
+  parseObjectWithGroups,
+  serializeArrayGroupsWithComments,
+  serializeObjectGroupsWithComments,
+  groupsToArray,
+  groupsToObject,
+  arrayToGroups,
+  objectToGroups,
+  groupsToRuleStrings
+} = require('../utils/yaml');
 
 const CONFIGS_DIR = path.join(__dirname, '../data/configs');
 
@@ -62,9 +76,9 @@ function getConfigPath(id, name = null) {
 }
 
 /**
- * 将配置对象转换为带有元数据注释的 YAML
+ * 将配置对象转换为带有元数据注释和分组注释的 YAML
  * @param {Object} config - 配置对象
- * @returns {string} YAML 字符串（带元数据注释）
+ * @returns {string} YAML 字符串（带元数据注释和分组注释）
  */
 function configToYamlWithMeta(config) {
   // 提取元数据
@@ -75,15 +89,29 @@ function configToYamlWithMeta(config) {
     updatedAt: config.updatedAt
   };
   
-  // 创建导出数据（移除元数据）
+  // 提取分组信息
+  const groups = config._groups || {};
+  
+  // 创建导出数据（移除元数据和分组信息）
   const exportData = { ...config };
   delete exportData.id;
   delete exportData.name;
   delete exportData.createdAt;
   delete exportData.updatedAt;
+  delete exportData._groups;
   
   // 生成 YAML 内容
-  const yamlContent = toYaml(exportData);
+  let yamlContent;
+  
+  // 检查是否有分组信息需要保留
+  const hasGroups = Object.keys(groups).length > 0;
+  
+  if (hasGroups) {
+    // 使用自定义序列化来保留分组注释
+    yamlContent = serializeConfigWithGroups(exportData, groups);
+  } else {
+    yamlContent = toYaml(exportData);
+  }
   
   // 添加元数据注释
   const metaComment = `# Clash Configurator Metadata\n# id: ${meta.id}\n# name: ${meta.name}\n# createdAt: ${meta.createdAt}\n# updatedAt: ${meta.updatedAt}\n\n`;
@@ -92,7 +120,77 @@ function configToYamlWithMeta(config) {
 }
 
 /**
- * 从 YAML 内容解析配置对象（包含元数据）
+ * 序列化配置并保留分组注释
+ * @param {Object} data - 配置数据
+ * @param {Object} groups - 分组信息
+ * @returns {string} YAML 字符串
+ */
+function serializeConfigWithGroups(data, groups) {
+  const yaml = require('js-yaml');
+  const lines = [];
+  
+  // 定义字段的顺序
+  const fieldOrder = [
+    'mixed-port', 'port', 'socks-port', 'redir-port', 'tproxy-port',
+    'allow-lan', 'bind-address', 'mode', 'log-level', 'ipv6',
+    'external-controller', 'external-ui', 'secret',
+    'geodata-mode', 'geox-url', 'unified-delay', 'tcp-concurrent',
+    'sniffer', 'dns', 'hosts', 'tun',
+    'proxies', 'proxy-providers', 'proxy-groups', 
+    'rule-providers', 'rules',
+    'script', 'listeners'
+  ];
+  
+  // 已处理的字段
+  const processedFields = new Set();
+  
+  // 按顺序处理字段
+  for (const field of fieldOrder) {
+    if (data.hasOwnProperty(field)) {
+      processedFields.add(field);
+      
+      // 检查是否需要使用分组序列化
+      if (field === 'rules' && groups[field]) {
+        lines.push(serializeArrayGroupsWithComments(groups[field], field));
+      } else if (field === 'proxy-groups' && groups[field]) {
+        lines.push(serializeArrayGroupsWithComments(groups[field], field));
+      } else if (field === 'proxies' && groups[field]) {
+        lines.push(serializeArrayGroupsWithComments(groups[field], field));
+      } else if (field === 'rule-providers' && groups[field]) {
+        lines.push(serializeObjectGroupsWithComments(groups[field], field));
+      } else if (field === 'proxy-providers' && groups[field]) {
+        lines.push(serializeObjectGroupsWithComments(groups[field], field));
+      } else {
+        // 普通字段序列化
+        const fieldYaml = yaml.dump({ [field]: data[field] }, {
+          indent: 2,
+          lineWidth: -1,
+          noRefs: true,
+          sortKeys: false
+        });
+        lines.push(fieldYaml);
+      }
+    }
+  }
+  
+  // 处理剩余字段
+  for (const field of Object.keys(data)) {
+    if (!processedFields.has(field)) {
+      const fieldYaml = yaml.dump({ [field]: data[field] }, {
+        indent: 2,
+        lineWidth: -1,
+        noRefs: true,
+        sortKeys: false
+      });
+      lines.push(fieldYaml);
+    }
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * 从 YAML 内容解析配置对象（包含元数据和分组信息）
  * @param {string} yamlString - YAML 字符串
  * @param {string} defaultId - 默认 ID（如果 YAML 中没有）
  * @returns {Object} 配置对象
@@ -120,9 +218,27 @@ function parseYamlWithMeta(yamlString, defaultId = null) {
   const cleanYaml = yamlString.replace(metaRegex, '').trim();
   const data = fromYaml(cleanYaml);
   
+  // 解析分组信息
+  // 数组类型字段：rules, proxy-groups, proxies
+  const rulesGroups = parseArrayWithGroups(cleanYaml, 'rules');
+  const proxyGroupsGroups = parseArrayWithGroups(cleanYaml, 'proxy-groups');
+  const proxiesGroups = parseArrayWithGroups(cleanYaml, 'proxies');
+  
+  // 对象类型字段：rule-providers, proxy-providers
+  const ruleProvidersGroups = parseObjectWithGroups(cleanYaml, 'rule-providers');
+  const proxyProvidersGroups = parseObjectWithGroups(cleanYaml, 'proxy-providers');
+  
   return {
     ...data,
-    ...meta
+    ...meta,
+    // 添加分组信息
+    _groups: {
+      rules: rulesGroups,
+      'proxy-groups': proxyGroupsGroups,
+      proxies: proxiesGroups,
+      'rule-providers': ruleProvidersGroups,
+      'proxy-providers': proxyProvidersGroups
+    }
   };
 }
 
@@ -526,6 +642,71 @@ function validateYaml(yamlString) {
   }
 }
 
+/**
+ * 更新配置的分组信息
+ * @param {string} id - 配置 ID
+ * @param {string} field - 字段名（rules, proxy-groups, proxies, rule-providers, proxy-providers）
+ * @param {Array} groups - 分组数据
+ * @returns {Promise<Object>} 更新后的配置
+ */
+async function updateConfigGroups(id, field, groups) {
+  const config = await getConfig(id);
+  
+  // 验证字段名
+  const validFields = ['rules', 'proxy-groups', 'proxies', 'rule-providers', 'proxy-providers'];
+  if (!validFields.includes(field)) {
+    throw new Error(`无效的字段名: ${field}`);
+  }
+  
+  // 更新分组信息
+  if (!config._groups) {
+    config._groups = {};
+  }
+  config._groups[field] = groups;
+  
+  // 同步更新实际数据
+  if (field === 'rules') {
+    // rules 需要转换为字符串数组
+    config[field] = groupsToRuleStrings(groups);
+  } else if (field === 'proxy-groups' || field === 'proxies') {
+    // 数组类型字段
+    config[field] = groupsToArray(groups);
+  } else {
+    // 对象类型字段
+    config[field] = groupsToObject(groups);
+  }
+  
+  // 更新时间戳
+  config.updatedAt = new Date().toISOString();
+  
+  // 保存配置
+  const configPath = getConfigPath(id, config.name);
+  await fs.writeFile(configPath, configToYamlWithMeta(config), 'utf-8');
+  
+  return config;
+}
+
+/**
+ * 获取配置的分组信息
+ * @param {string} id - 配置 ID
+ * @param {string} field - 字段名（可选，不传则返回所有分组信息）
+ * @returns {Promise<Object|Array>} 分组信息
+ */
+async function getConfigGroups(id, field = null) {
+  const config = await getConfig(id);
+  
+  if (field) {
+    // 验证字段名
+    const validFields = ['rules', 'proxy-groups', 'proxies', 'rule-providers', 'proxy-providers'];
+    if (!validFields.includes(field)) {
+      throw new Error(`无效的字段名: ${field}`);
+    }
+    return config._groups?.[field] || null;
+  }
+  
+  return config._groups || {};
+}
+
 module.exports = {
   getAllConfigs,
   getConfig,
@@ -538,5 +719,8 @@ module.exports = {
   validateConfig,
   getConfigYaml,
   updateConfigFromYaml,
-  validateYaml
+  validateYaml,
+  // 分组相关
+  updateConfigGroups,
+  getConfigGroups
 };
