@@ -474,7 +474,12 @@ export const useConfigStore = defineStore('config', () => {
           while (Array.isArray(unwrapped) && unwrapped.length > 0) {
             unwrapped = unwrapped[0]
           }
-          return unwrapped && typeof unwrapped === 'object' ? unwrapped : item
+          item = unwrapped && typeof unwrapped === 'object' ? unwrapped : item
+        }
+        // 排除内部属性
+        if (item && typeof item === 'object') {
+          const { id, _dragId, ...rest } = item
+          return rest
         }
         return item
       })
@@ -497,7 +502,12 @@ export const useConfigStore = defineStore('config', () => {
     for (const group of groups) {
       for (const item of (group.items || [])) {
         if (item && item.name) {
-          const { name, ...data } = item
+          // 排除内部属性
+          const { name, id, _dragId, localRuleSet, ...data } = item
+          // 如果有 localRuleSetId，保留它
+          if (item.localRuleSetId) {
+            data.localRuleSetId = item.localRuleSetId
+          }
           result[name] = data
         }
       }

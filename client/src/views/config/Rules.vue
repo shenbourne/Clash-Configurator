@@ -262,18 +262,15 @@ const localGroups = ref([])
 const ruleGroups = computed({
   get() {
     const groups = store.getFieldGroups('rules')
+    // 只要有分组数据（即使是空分组），就使用分组数据
     if (groups && Array.isArray(groups) && groups.length > 0) {
-      // 检查是否有实际内容
-      const hasItems = groups.some(g => g.items && g.items.length > 0)
-      if (hasItems) {
-        // 确保每个 item 都被正确解析为对象格式
-        return groups.map(group => ({
-          ...group,
-          items: (group.items || []).map((item, index) =>
-            parseRuleItem(item, index, group.name)
-          )
-        }))
-      }
+      // 确保每个 item 都被正确解析为对象格式
+      return groups.map(group => ({
+        ...group,
+        items: (group.items || []).map((item, index) =>
+          parseRuleItem(item, index, group.name)
+        )
+      }))
     }
     // 如果没有分组信息，将所有规则放入默认分组
     return [{ name: null, collapsed: false, items: rules.value }]

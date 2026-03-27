@@ -45,6 +45,15 @@
             />
           </div>
         </div>
+        <!-- 空分组的放置区域 -->
+        <div
+          v-if="!group.items || group.items.length === 0"
+          class="empty-drop-zone"
+          @dragover.prevent="onDragOver"
+          @drop="onDropOnEmptyGroup($event, groupIndex)"
+        >
+          <span class="empty-hint">拖放项目到此处</span>
+        </div>
       </div>
     </div>
     
@@ -103,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Edit, Delete, Plus } from '@element-plus/icons-vue'
 
@@ -188,7 +197,7 @@ function showAddGroupDialog() {
 }
 
 // 提交添加分组
-function submitAddGroup() {
+async function submitAddGroup() {
   if (!addGroupForm.name.trim()) {
     ElMessage.warning('请输入分组名称')
     return
@@ -200,8 +209,16 @@ function submitAddGroup() {
     return
   }
   
-  localGroups.value.push({ name: addGroupForm.name.trim(), collapsed: false, items: [] })
+  // 添加新分组
+  const newGroup = { name: addGroupForm.name.trim(), collapsed: false, items: [] }
+  localGroups.value.push(newGroup)
+  
+  // 等待下一个 tick，确保本地数据已更新
+  await nextTick()
+  
+  // 发送变更事件
   emitChange()
+  
   addGroupDialogVisible.value = false
   ElMessage.success('分组已添加')
 }
@@ -381,6 +398,69 @@ function onDrop(event, targetGroupIndex, targetItemIndex) {
   console.log('Drop completed')
 }
 
+// 拖放到空分组的处理
+function onDropOnEmptyGroup(event, targetGroupIndex) {
+  event.preventDefault()
+  console.log('Drop on empty group:', { targetGroupIndex })
+  
+  // 从 dataTransfer 获取源位置信息
+  let sourceData
+  try {
+    const jsonData = event.dataTransfer.getData('application/json')
+    sourceData = JSON.parse(jsonData)
+  } catch (e) {
+    console.error('Failed to parse drag data:', e)
+    return
+  }
+  
+  if (!sourceData) {
+    console.log('No source data')
+    return
+  }
+  
+  const sourceGroupIndex = sourceData.groupIndex
+  const sourceItemIndex = sourceData.itemIndex
+  
+  console.log('Source:', { sourceGroupIndex, sourceItemIndex })
+  
+  // 获取源项目
+  const sourceGroup = localGroups.value[sourceGroupIndex]
+  if (!sourceGroup || !sourceGroup.items) {
+    console.error('Source group not found')
+    return
+  }
+  
+  const sourceItem = sourceGroup.items[sourceItemIndex]
+  if (!sourceItem) {
+    console.error('Source item not found')
+    return
+  }
+  
+  console.log('Moving item to empty group:', sourceItem)
+  
+  // 创建新的分组数组（避免直接修改）
+  const newGroups = JSON.parse(JSON.stringify(localGroups.value))
+  
+  // 从源位置移除
+  newGroups[sourceGroupIndex].items.splice(sourceItemIndex, 1)
+  
+  // 确保目标分组存在 items 数组
+  if (!newGroups[targetGroupIndex].items) {
+    newGroups[targetGroupIndex].items = []
+  }
+  
+  // 添加到目标分组
+  newGroups[targetGroupIndex].items.push(sourceItem)
+  
+  // 更新本地数据
+  localGroups.value = newGroups
+  
+  // 发送更新
+  emitChange()
+  
+  console.log('Drop on empty group completed')
+}
+
 // 移除 items 中的 _dragId 属性
 function removeDragIds(groups) {
   return groups.map(group => ({
@@ -458,6 +538,27 @@ function emitChange() {
     .group-content {
       padding: 12px;
       background: #fff;
+      
+      .empty-drop-zone {
+        min-height: 60px;
+        border: 2px dashed #dcdfe6;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fafafa;
+        transition: all 0.2s;
+        
+        &:hover {
+          border-color: #409eff;
+          background: #ecf5ff;
+        }
+        
+        .empty-hint {
+          color: #909399;
+          font-size: 14px;
+        }
+      }
     }
   }
   

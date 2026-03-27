@@ -208,8 +208,8 @@ function parseArrayWithGroups(yamlString, key) {
   let inTargetSection = false;
   let targetIndent = -1;
   
-  // 分组注释正则：匹配 #分组名 格式（#后直接跟分组名，无空格）
-  const groupCommentRegex = /^\s*#(\S+)\s*$/;
+  // 分组注释正则：匹配 #分组名 格式（分组名可以包含空格）
+  const groupCommentRegex = /^\s*#(.+)$/;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -239,8 +239,8 @@ function parseArrayWithGroups(yamlString, key) {
       // 检测分组注释
       const groupMatch = trimmedLine.match(groupCommentRegex);
       if (groupMatch) {
-        // 保存当前分组（如果有内容）
-        if (currentGroup.items.length > 0) {
+        // 保存当前分组（如果有内容或者是命名分组）
+        if (currentGroup.items.length > 0 || currentGroup.name !== null) {
           groups.push(currentGroup);
         }
         // 开始新分组
@@ -316,8 +316,8 @@ function parseArrayWithGroups(yamlString, key) {
     }
   }
   
-  // 保存最后一个分组
-  if (currentGroup.items.length > 0) {
+  // 保存最后一个分组（如果有内容或者是命名分组）
+  if (currentGroup.items.length > 0 || currentGroup.name !== null) {
     groups.push(currentGroup);
   }
   
@@ -342,8 +342,8 @@ function parseObjectWithGroups(yamlString, key) {
   let inTargetSection = false;
   let targetIndent = -1;
   
-  // 分组注释正则：匹配 #分组名 格式
-  const groupCommentRegex = /^\s*#(\S+)\s*$/;
+  // 分组注释正则：匹配 #分组名 格式（分组名可以包含空格）
+  const groupCommentRegex = /^\s*#(.+)$/;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -373,8 +373,8 @@ function parseObjectWithGroups(yamlString, key) {
       // 检测分组注释
       const groupMatch = trimmedLine.match(groupCommentRegex);
       if (groupMatch) {
-        // 保存当前分组（如果有内容）
-        if (currentGroup.items.length > 0) {
+        // 保存当前分组（如果有内容或者是命名分组）
+        if (currentGroup.items.length > 0 || currentGroup.name !== null) {
           groups.push(currentGroup);
         }
         // 开始新分组
@@ -434,8 +434,8 @@ function parseObjectWithGroups(yamlString, key) {
     }
   }
   
-  // 保存最后一个分组
-  if (currentGroup.items.length > 0) {
+  // 保存最后一个分组（如果有内容或者是命名分组）
+  if (currentGroup.items.length > 0 || currentGroup.name !== null) {
     groups.push(currentGroup);
   }
   
@@ -599,7 +599,12 @@ function groupsToArray(groups) {
         while (Array.isArray(unwrapped) && unwrapped.length > 0) {
           unwrapped = unwrapped[0];
         }
-        return unwrapped && typeof unwrapped === 'object' ? unwrapped : item;
+        item = unwrapped && typeof unwrapped === 'object' ? unwrapped : item;
+      }
+      // 排除内部属性
+      if (item && typeof item === 'object') {
+        const { id, _dragId, ...rest } = item;
+        return rest;
       }
       return item;
     });
@@ -634,7 +639,12 @@ function groupsToObject(groups) {
   for (const group of groups) {
     for (const item of (group.items || [])) {
       if (item && item.name) {
-        const { name, ...data } = item;
+        // 排除内部属性
+        const { name, id, _dragId, localRuleSet, ...data } = item;
+        // 如果有 localRuleSetId，保留它
+        if (item.localRuleSetId) {
+          data.localRuleSetId = item.localRuleSetId;
+        }
         result[name] = data;
       }
     }
