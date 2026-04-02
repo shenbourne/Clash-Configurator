@@ -228,6 +228,17 @@ function parseYamlWithMeta(yamlString, defaultId = null) {
   const ruleProvidersGroups = parseObjectWithGroups(cleanYaml, 'rule-providers');
   const proxyProvidersGroups = parseObjectWithGroups(cleanYaml, 'proxy-providers');
   
+  // 用分组信息覆盖数组字段，以保留被注释（禁用）的项目
+  if (rulesGroups && rulesGroups.length > 0) {
+    data.rules = groupsToRuleStrings(rulesGroups);
+  }
+  if (proxyGroupsGroups && proxyGroupsGroups.length > 0) {
+    data['proxy-groups'] = groupsToArray(proxyGroupsGroups);
+  }
+  if (proxiesGroups && proxiesGroups.length > 0) {
+    data.proxies = groupsToArray(proxiesGroups);
+  }
+  
   return {
     ...data,
     ...meta,

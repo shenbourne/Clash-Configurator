@@ -34,7 +34,7 @@
           @change="onGroupsChange"
         >
           <template #item="{ element, groupIndex, itemIndex }">
-            <div class="rule-item">
+            <div class="rule-item" :class="{ 'is-disabled': element.enabled === false }">
               <div class="drag-handle">
                 <el-icon><Rank /></el-icon>
               </div>
@@ -47,6 +47,14 @@
                 <el-tag size="small" type="success">{{ getRuleTarget(element) }}</el-tag>
               </div>
               <div class="rule-actions">
+                <el-switch
+                  v-model="element.enabled"
+                  :active-value="true"
+                  :inactive-value="false"
+                  @change="toggleRule(groupIndex, itemIndex, $event)"
+                  size="small"
+                  style="margin-right: 8px;"
+                />
                 <el-button link type="primary" @click="editRule(groupIndex, itemIndex)">编辑</el-button>
                 <el-button link type="danger" @click="removeRule(groupIndex, itemIndex)">删除</el-button>
               </div>
@@ -185,7 +193,9 @@ const rules = computed(() => {
   const rawRules = store.currentConfig?.rules || []
   return rawRules.map((rule, index) => {
     if (typeof rule === 'string') {
-      const parts = rule.split(',')
+      const isDisabled = rule.startsWith('#')
+      const cleanRule = isDisabled ? rule.substring(1).trim() : rule
+      const parts = cleanRule.split(',')
       // MATCH 规则格式: MATCH,target (没有 value)
       if (parts[0] === 'MATCH') {
         return {
@@ -194,7 +204,8 @@ const rules = computed(() => {
           value: '',
           target: parts[1] || '',
           noResolve: false,
-          raw: rule
+          enabled: !isDisabled,
+          raw: cleanRule
         }
       }
       return {
@@ -203,7 +214,8 @@ const rules = computed(() => {
         value: parts[1] || '',
         target: parts[2] || '',
         noResolve: parts[3] === 'no-resolve',
-        raw: rule
+        enabled: !isDisabled,
+        raw: cleanRule
       }
     }
     return { id: `rule-${index}-${Date.now()}`, ...rule }
@@ -222,7 +234,10 @@ function parseRuleItem(item, index, groupName) {
   
   // 如果是字符串，解析为对象
   if (typeof item === 'string') {
-    const parts = item.split(',')
+    // 检测是否是被注释（禁用）的规则
+    const isDisabled = item.startsWith('#')
+    const cleanItem = isDisabled ? item.substring(1).trim() : item
+    const parts = cleanItem.split(',')
     // MATCH 规则格式: MATCH,target (没有 value)
     if (parts[0] === 'MATCH') {
       return {
@@ -231,7 +246,8 @@ function parseRuleItem(item, index, groupName) {
         value: '',
         target: parts[1] || '',
         noResolve: false,
-        raw: item
+        enabled: !isDisabled,
+        raw: cleanItem
       }
     }
     return {
@@ -240,7 +256,8 @@ function parseRuleItem(item, index, groupName) {
       value: parts[1] || '',
       target: parts[2] || '',
       noResolve: parts[3] === 'no-resolve',
-      raw: item
+      enabled: !isDisabled,
+      raw: cleanItem
     }
   }
   
@@ -481,6 +498,14 @@ async function submitForm() {
     noResolve: ruleForm.noResolve
   }
   
+  // 编辑时保留原有的 enabled 状态
+  if (editingGroupIndex.value !== null) {
+    const originalRule = ruleGroups.value[editingGroupIndex.value]?.items?.[editingIndex.value]
+    if (originalRule && originalRule.enabled === false) {
+      newRule.enabled = false
+    }
+  }
+  
   const newGroups = ruleGroups.value.map((group, gi) => {
     if (editingGroupIndex.value !== null && gi === editingGroupIndex.value) {
       // 编辑模式
@@ -510,6 +535,26 @@ async function submitForm() {
     await store.updateConfigGroups(route.params.id, 'rules', newGroups)
     ElMessage.success(editingGroupIndex.value !== null ? '规则已更新' : '规则已添加')
     dialogVisible.value = false
+  } catch (e) {
+    // 错误已处理
+  }
+}
+
+async function toggleRule(groupIndex, itemIndex, value) {
+  const newGroups = ruleGroups.value.map((group, gi) => {
+    if (gi === groupIndex) {
+      return {
+        ...group,
+        items: group.items.map((item, ii) =>
+          ii === itemIndex ? { ...item, enabled: value } : item
+        )
+      }
+    }
+    return group
+  })
+  try {
+    await store.updateConfigGroups(route.params.id, 'rules', newGroups)
+    ElMessage.success(value ? '规则已启用' : '规则已禁用')
   } catch (e) {
     // 错误已处理
   }
@@ -628,9 +673,25 @@ async function saveRules() {
     }
     
     .rule-actions {
-      width: 100px;
+      width: 140px;
       flex-shrink: 0;
       text-align: right;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+    
+    &.is-disabled {
+      opacity: 0.55;
+      background: #e8e8e8;
+      
+      .rule-value,
+      .rule-type,
+      .rule-target,
+      .rule-index {
+        text-decoration: line-through;
+      }
     }
   }
   

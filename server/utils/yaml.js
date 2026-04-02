@@ -236,9 +236,16 @@ function parseArrayWithGroups(yamlString, key) {
         break;
       }
       
-      // 检测分组注释
+      // 检测关闭的规则（用于 rules）
+      if (key === 'rules' && trimmedLine.startsWith('#- ')) {
+        const itemContent = trimmedLine.substring(3).trim();
+        currentGroup.items.push({ raw: itemContent, enabled: false });
+        continue;
+      }
+      
+      // 检测分组注释（排除关闭的规则注释）
       const groupMatch = trimmedLine.match(groupCommentRegex);
-      if (groupMatch) {
+      if (groupMatch && !trimmedLine.startsWith('#- ')) {
         // 保存当前分组（如果有内容或者是命名分组）
         if (currentGroup.items.length > 0 || currentGroup.name !== null) {
           groups.push(currentGroup);
@@ -464,7 +471,13 @@ function serializeArrayGroupsWithComments(groups, key) {
     
     // 添加项目
     for (const item of group.items) {
-      if (typeof item === 'string') {
+      if (key === 'rules' && item && typeof item === 'object' && item.enabled === false) {
+        // 禁用的规则 - 输出为注释
+        const ruleString = ruleObjectToString({ ...item, enabled: true });
+        if (ruleString) {
+          result += `  #- ${ruleString}\n`;
+        }
+      } else if (typeof item === 'string') {
         // 字符串类型（如 rules）
         result += `  - ${item}\n`;
       } else if (key === 'rules' && item && typeof item === 'object') {
@@ -549,14 +562,14 @@ function serializeObjectGroupsWithComments(groups, key) {
  * @returns {string} 规则字符串
  */
 function ruleObjectToString(item) {
-  // 如果有 raw 属性，直接使用
+  // 如果有 raw 属性，直接使用（去掉可能的注释前缀）
   if (item && item.raw) {
-    return item.raw;
+    return item.raw.startsWith('#') ? item.raw.substring(1).trim() : item.raw;
   }
   
-  // 如果是字符串，直接返回
+  // 如果是字符串，直接返回（去掉可能的注释前缀）
   if (typeof item === 'string') {
-    return item;
+    return item.startsWith('#') ? item.substring(1).trim() : item;
   }
   
   // 如果是对象，构建规则字符串

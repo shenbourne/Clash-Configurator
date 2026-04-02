@@ -2,7 +2,7 @@
 # id: bf0d9ba6-7262-44c4-a6cd-527444991126
 # name: advanced
 # createdAt: 2026-03-20T14:52:12.358Z
-# updatedAt: 2026-03-27T05:56:20.932Z
+# updatedAt: 2026-04-02T04:58:06.437Z
 
 mixed-port: 7890
 
@@ -48,6 +48,8 @@ dns:
   fallback:
     - tls://8.8.8.8:853
     - tls://1.1.1.1:853
+
+proxies:
 
 proxy-providers:
   Youtu:
@@ -523,13 +525,13 @@ rules:
   - RULE-SET,premium_private,DIRECT
 
   #ads
-  - RULE-SET,premium_reject,REJECT
-  - RULE-SET,ads_AD,REJECT
-  - RULE-SET,ads_EasyList,REJECT
-  - RULE-SET,ads_EasyListChina,REJECT
-  - RULE-SET,ads_EasyPrivacy,REJECT
-  - RULE-SET,ads_ProgramAD,REJECT
-  - GEOSITE,category-ads-all,REJECT
+  #- RULE-SET,premium_reject,REJECT
+  #- RULE-SET,ads_AD,REJECT
+  #- RULE-SET,ads_EasyList,REJECT
+  #- RULE-SET,ads_EasyListChina,REJECT
+  #- RULE-SET,ads_EasyPrivacy,REJECT
+  #- RULE-SET,ads_ProgramAD,REJECT
+  #- GEOSITE,category-ads-all,REJECT
 
   #direct
   - RULE-SET,premium_icloud,DIRECT

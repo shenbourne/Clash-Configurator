@@ -430,14 +430,14 @@ export const useConfigStore = defineStore('config', () => {
 
   // 辅助函数：将规则对象转换为字符串
   function ruleObjectToString(item) {
-    // 如果有 raw 属性，直接使用
+    // 如果有 raw 属性，直接使用（去掉可能的注释前缀）
     if (item.raw) {
-      return item.raw
+      return item.raw.startsWith('#') ? item.raw.substring(1).trim() : item.raw
     }
     
-    // 如果是字符串，直接返回
+    // 如果是字符串，直接返回（去掉可能的注释前缀）
     if (typeof item === 'string') {
-      return item
+      return item.startsWith('#') ? item.substring(1).trim() : item
     }
     
     // 如果是对象，构建规则字符串
