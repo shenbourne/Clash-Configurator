@@ -86,7 +86,28 @@ const routes = [
         path: 'rule-sets/:id',
         name: 'RuleSetEdit',
         component: () => import('@/views/RuleSetEdit.vue'),
-        meta: { title: '编辑规则集合' }
+        meta: { title: '编辑规则集合' },
+        redirect: { name: 'RuleSetBasic' },
+        children: [
+          {
+            path: 'basic',
+            name: 'RuleSetBasic',
+            component: () => import('@/views/rule-set/BasicInfo.vue'),
+            meta: { title: '基本信息' }
+          },
+          {
+            path: 'rules',
+            name: 'RuleSetRules',
+            component: () => import('@/views/rule-set/RuleList.vue'),
+            meta: { title: '规则列表' }
+          },
+          {
+            path: 'preview',
+            name: 'RuleSetPreview',
+            component: () => import('@/views/rule-set/YamlEdit.vue'),
+            meta: { title: 'YAML 编辑' }
+          }
+        ]
       }
     ]
   }

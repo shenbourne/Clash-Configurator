@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>规则集合</span>
+          <h3>规则集合</h3>
           <div class="actions">
             <el-button size="small" @click="showImportDialog">
               <el-icon><Upload /></el-icon>
@@ -301,7 +301,7 @@ async function handleCreate() {
     })
     ElMessage.success('创建成功')
     createDialogVisible.value = false
-    router.push(`/rule-sets/${rs.id}`)
+    router.push(`/rule-sets/${rs.id}/basic`)
   } catch (e) {
     // 错误已处理
   } finally {
@@ -311,7 +311,7 @@ async function handleCreate() {
 
 // 编辑规则集
 function editRuleSet(rs) {
-  router.push(`/rule-sets/${rs.id}`)
+  router.push(`/rule-sets/${rs.id}/basic`)
 }
 
 // 导出规则集
