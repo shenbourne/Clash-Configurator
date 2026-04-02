@@ -67,9 +67,9 @@ docker build -t shenbourne/clash-configurator:latest .
 docker run -d \
   --name clash-configurator \
   -p 3000:3000 \
-  -v $(pwd)/data/configs:/app/server/data/configs \
-  -v $(pwd)/data/rule-sets:/app/server/data/rule-sets \
-  -v $(pwd)/data/temp:/app/server/data/temp \
+  -v ${pwd}/data/configs:/app/server/data/configs \
+  -v ${pwd}/data/rule-sets:/app/server/data/rule-sets \
+  -v ${pwd}/data/temp:/app/server/data/temp \
   -e CORS_ORIGIN=* \
   clash-configurator:latest
 ```
